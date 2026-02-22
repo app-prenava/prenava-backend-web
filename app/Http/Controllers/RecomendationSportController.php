@@ -460,6 +460,7 @@ class RecomendationSportController extends Controller
         ], 201);
     }
 
+
     public function updateSportMeta(Request $request, string $activity): JsonResponse
     {
         [$uid] = AuthToken::assertRoleFresh($request, 'admin');
@@ -509,22 +510,22 @@ class RecomendationSportController extends Controller
         }
 
         if ($request->hasFile('picture_1')) {
-            $path = $request->file('picture_1')->store($folder, 'supabase');
-            $payload['picture_1'] = \Illuminate\Support\Facades\Storage::disk('supabase')->url($path);
+            $path = $request->file('picture_1')->store($folder, 'public');
+            $payload['picture_1'] = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
         } elseif (!empty($d['remove_picture_1'])) {
             $payload['picture_1'] = null;
         }
 
         if ($request->hasFile('picture_2')) {
-            $path = $request->file('picture_2')->store($folder, 'supabase');
-            $payload['picture_2'] = \Illuminate\Support\Facades\Storage::disk('supabase')->url($path);
+            $path = $request->file('picture_2')->store($folder, 'public');
+            $payload['picture_2'] = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
         } elseif (!empty($d['remove_picture_2'])) {
             $payload['picture_2'] = null;
         }
 
         if ($request->hasFile('picture_3')) {
-            $path = $request->file('picture_3')->store($folder, 'supabase');
-            $payload['picture_3'] = \Illuminate\Support\Facades\Storage::disk('supabase')->url($path);
+            $path = $request->file('picture_3')->store($folder, 'public');
+            $payload['picture_3'] = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
         } elseif (!empty($d['remove_picture_3'])) {
             $payload['picture_3'] = null;
         }

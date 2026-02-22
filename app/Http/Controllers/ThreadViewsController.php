@@ -56,11 +56,12 @@ class ThreadViewsController extends Controller
 
         $ttl = $redis->ttl($userViewKey);
 
+
         $author = [
             'user_id' => $thread->user_id,
             'name'    => $thread->user_name ?? 'Unknown',
             'email'   => $thread->user_email,
-            'photo'   => $thread->user_photo ? \App\Helpers\PhotoHelper::transformPhotoUrl($thread->user_photo, 'supabase') : null,
+            'photo'   => $thread->user_photo ? \App\Helpers\PhotoHelper::transformPhotoUrl($thread->user_photo, 'public') : null,
         ];
 
         $comments = DB::table('threads')
@@ -83,12 +84,13 @@ class ThreadViewsController extends Controller
                     'user_id' => $comment->user_id,
                     'name'    => $comment->user_name ?? 'Unknown',
                     'email'   => $comment->user_email,
-                    'photo'   => $comment->user_photo ? \App\Helpers\PhotoHelper::transformPhotoUrl($comment->user_photo, 'supabase') : null,
+                    'photo'   => $comment->user_photo ? \App\Helpers\PhotoHelper::transformPhotoUrl($comment->user_photo, 'public') : null,
                 ];
 
                 unset($comment->user_name, $comment->user_email, $comment->user_photo);
                 return $comment;
             });
+
 
         return response()->json([
             'status' => 'success',

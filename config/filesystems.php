@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'default' => env('FILESYSTEM_DISK', 'supabase'),
+    'default' => env('FILESYSTEM_DISK', 'public'),
 
     /*
     |--------------------------------------------------------------------------
@@ -57,40 +57,7 @@ return [
             'throw' => false,
         ],
 
-        // Aiven S3 Object Storage
-        'aiven' => [
-            'driver' => 's3',
-            'key' => env('AIVEN_ACCESS_KEY_ID'),
-            'secret' => env('AIVEN_SECRET_ACCESS_KEY'),
-            'region' => env('AIVEN_DEFAULT_REGION'),
-            'bucket' => env('AIVEN_BUCKET'),
-            'url' => env('AIVEN_URL'),
-            'endpoint' => env('AIVEN_ENDPOINT'),
-            'use_path_style_endpoint' => env('AIVEN_USE_PATH_STYLE_ENDPOINT', true),
-            'throw' => false,
-        ],
-
-        // Supabase Storage S3 Protocol
-        'supabase' => [
-            'driver' => 's3',
-            'key' => env('SUPABASE_S3_ACCESS_KEY_ID'),
-            'secret' => env('SUPABASE_S3_SECRET_ACCESS_KEY'),
-            'region' => env('SUPABASE_S3_REGION'),
-            'bucket' => env('SUPABASE_S3_BUCKET', 'img'),
-            'url' => env('SUPABASE_S3_ENDPOINT') . '/storage/v1/object/public/' . env('SUPABASE_S3_BUCKET', 'img'),
-            'endpoint' => env('SUPABASE_S3_ENDPOINT') . '/storage/v1/s3',
-            'use_path_style_endpoint' => true,
-            'options' => [
-                'URL' => env('SUPABASE_S3_ENDPOINT') . '/storage/v1/s3',
-                // Add these options for better Supabase compatibility
-                'overrides' => [
-                    'visibility' => 'public',
-                ],
-            ],
-            'throw' => false,
-            'visibility' => 'public',
-        ],
-
+        // 's3' config ends above
     ],
 
     /*

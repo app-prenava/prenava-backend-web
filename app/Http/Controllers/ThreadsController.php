@@ -49,10 +49,9 @@ public function getAll(Request $request)
         ->get()
         ->map(function ($item) {
             $item->content_preview = Str::limit(strip_tags($item->content), 120);
-
             // Transform photo URL using PhotoHelper
             if (!empty($item->photo)) {
-                $item->photo = \App\Helpers\PhotoHelper::transformPhotoUrl($item->photo, 'supabase');
+                $item->photo = \App\Helpers\PhotoHelper::transformPhotoUrl($item->photo, 'public');
             }
 
             return $item;

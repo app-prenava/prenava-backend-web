@@ -26,7 +26,7 @@ class PhotoHelper
      * @param string $disk
      * @return string|null
      */
-    public static function transformPhotoUrl(?string $photo, string $disk = 'supabase'): ?string
+    public static function transformPhotoUrl(?string $photo, string $disk = 'public'): ?string
     {
         if (empty($photo)) {
             return null;
