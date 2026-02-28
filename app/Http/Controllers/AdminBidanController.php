@@ -389,6 +389,15 @@ class AdminBidanController extends Controller
             $query->where('is_active', $request->boolean('is_active'));
         }
 
+        // Filter by location existence
+        if ($request->has('has_location')) {
+            if ($request->boolean('has_location')) {
+                $query->whereHas('bidanLocations');
+            } else {
+                $query->whereDoesntHave('bidanLocations');
+            }
+        }
+
         // Search
         if ($request->has('search')) {
             $search = $request->search;

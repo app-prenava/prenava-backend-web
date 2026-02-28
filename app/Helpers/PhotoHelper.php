@@ -42,7 +42,7 @@ class PhotoHelper
     }
 
     /**
-     * Extract relative path from Supabase URL
+     * Extract relative path from storage URL
      * Used for file deletion operations
      *
      * @param string $url
@@ -50,10 +50,10 @@ class PhotoHelper
      */
     public static function extractPathFromUrl(string $url): ?string
     {
-        // Support both 'img' and 'images' bucket names
-        $pattern = '/\/storage\/v1\/object\/public\/(img|images)\/(.+)$/';
+        // Extract path from local storage URL (e.g., /storage/shop/image.jpg)
+        $pattern = '/\/storage\/(.+)$/';
         if (preg_match($pattern, $url, $matches)) {
-            return $matches[1] . '/' . $matches[2]; // Return bucket/path format
+            return $matches[1];
         }
         return null;
     }
