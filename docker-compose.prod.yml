@@ -10,8 +10,8 @@ services:
     restart: unless-stopped
     working_dir: /var/www
     volumes:
-      - ./:/var/www
-      - /var/www/vendor
+      - prenava-public-data:/var/www/public
+      - prenava-storage-data:/var/www/storage
     networks:
       - prenava-network
     depends_on:
@@ -25,7 +25,8 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./:/var/www
+      - prenava-public-data:/var/www/public
+      - prenava-storage-data:/var/www/storage
       - ./nginx/conf.d:/etc/nginx/conf.d
     networks:
       - prenava-network
@@ -60,3 +61,5 @@ networks:
 
 volumes:
   prenava-mysql-data:
+  prenava-public-data:
+  prenava-storage-data:
