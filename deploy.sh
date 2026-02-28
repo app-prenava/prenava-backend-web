@@ -9,7 +9,7 @@ git pull origin master
 
 # Build and start the containers in detached mode
 # (Will recreate the 'app' container with the new code)
-docker-compose -f docker-compose.yml up -d --build app
+docker compose -f docker-compose.yml up -d --build app
 
 # Run composer install, config cache, and migrations inside the running app container
 docker compose -f docker-compose.yml exec -T app composer install --no-dev --optimize-autoloader
