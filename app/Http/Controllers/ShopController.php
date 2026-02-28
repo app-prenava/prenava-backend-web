@@ -318,11 +318,11 @@ class ShopController extends Controller
             ->leftJoin('users', 'shop_reviews.user_id', '=', 'users.user_id')
             ->where('shop_reviews.product_id', $id)
             ->select(
-                'shop_reviews.review_id',
+                'shop_reviews.id',
                 'shop_reviews.user_id',
                 'users.name as user_name',
                 'shop_reviews.rating',
-                'shop_reviews.review_text',
+                'shop_reviews.comment',
                 'shop_reviews.created_at',
                 'shop_reviews.updated_at'
             )
@@ -355,7 +355,7 @@ class ShopController extends Controller
 
         $v = Validator::make($request->all(), [
             'rating' => ['required', 'integer', 'min:1', 'max:5'],
-            'review_text' => ['nullable', 'string', 'max:1000'],
+            'comment' => ['nullable', 'string', 'max:1000'],
         ]);
 
         if ($v->fails()) {
@@ -369,10 +369,10 @@ class ShopController extends Controller
 
         if ($existing) {
             DB::table('shop_reviews')
-                ->where('review_id', $existing->review_id)
+                ->where('id', $existing->id)
                 ->update([
                     'rating' => $request->rating,
-                    'review_text' => $request->review_text,
+                    'comment' => $request->comment,
                     'updated_at' => now(),
                 ]);
 
@@ -386,7 +386,7 @@ class ShopController extends Controller
             'product_id' => $id,
             'user_id' => $uid,
             'rating' => $request->rating,
-            'review_text' => $request->review_text,
+            'comment' => $request->comment,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -403,7 +403,7 @@ class ShopController extends Controller
         [$uid, $role] = AuthToken::assertRoleFresh($request, ['ibu_hamil', 'admin']);
 
         $review = DB::table('shop_reviews')
-            ->where('review_id', $reviewId)
+            ->where('id', $reviewId)
             ->where('product_id', $productId)
             ->first();
 
@@ -418,7 +418,7 @@ class ShopController extends Controller
             ], 403);
         }
 
-        DB::table('shop_reviews')->where('review_id', $reviewId)->delete();
+        DB::table('shop_reviews')->where('id', $reviewId)->delete();
 
         return response()->json([
             'status' => 'success',
