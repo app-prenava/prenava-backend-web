@@ -1,90 +1,65 @@
+version: '3.8'
+
 services:
   app:
     build:
       context: .
-      dockerfile: docker/frankenphp.Dockerfile
-    container_name: nuri-backend-app
+      dockerfile: Dockerfile
+    image: prenava-app:latest
+    container_name: prenava-app
     restart: unless-stopped
+    working_dir: /var/www
     volumes:
-      - ./:/app
+      - prenava-public-data:/var/www/public
+      - prenava-storage-data:/var/www/storage
+    networks:
+      - prenava-network
     depends_on:
       - mysql
       - redis
-    networks:
-      - nuri-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: prenava-nginx
+    restart: unless-stopped
     ports:
-      - "8000:80"
-    environment:
-      APP_ENV: local
-      APP_DEBUG: true
-      APP_KEY: ${APP_KEY}
-      APP_URL: http://localhost:8000
-
-      DB_CONNECTION: mysql
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_DATABASE: nuri_db
-      DB_USERNAME: root
-      DB_PASSWORD: 
-
-      CACHE_DRIVER: redis
-      SESSION_DRIVER: redis
-      REDIS_CLIENT: phpredis
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: null
-      REDIS_URL: "tcp://redis:6379"
-      REDIS_DB: 0
-      REDIS_CACHE_DB: 1
-
+      - "80:80"
+    volumes:
+      - prenava-public-data:/var/www/public
+      - prenava-storage-data:/var/www/storage
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    networks:
+      - prenava-network
+    depends_on:
+      - app
 
   mysql:
     image: mysql:8.0
-    container_name: nuri-backend-mysql
+    container_name: prenava-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-      MYSQL_DATABASE: nuri_db
-      MYSQL_USER: nuri
-      MYSQL_PASSWORD: 
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - mysql_data:/var/lib/mysql
+      - prenava-mysql-data:/var/lib/mysql
     networks:
-      - nuri-net
-    ports:
-      - "3307:3306"
+      - prenava-network
+    command: --collation-server=utf8mb4_unicode_ci --character-set-server=utf8mb4
 
   redis:
-    image: redis:7-alpine
-    container_name: nuri-backend-redis
+    image: redis:alpine
+    container_name: prenava-redis
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "6379:6379"
     networks:
-      - nuri-net
-    volumes:
-      - redis_data:/data
-
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
-    container_name: nuri-backend-phpmyadmin
-    restart: unless-stopped
-    environment:
-      PMA_HOST: mysql
-      PMA_USER: root
-      PMA_PASSWORD: 
-    depends_on:
-      - mysql
-    networks:
-      - nuri-net
-    ports:
-      - "8081:80"
-
-volumes:
-  mysql_data:
-  redis_data:
+      - prenava-network
 
 networks:
-  nuri-net:
+  prenava-network:
     driver: bridge
+
+volumes:
+  prenava-mysql-data:
+  prenava-public-data:
+  prenava-storage-data:
