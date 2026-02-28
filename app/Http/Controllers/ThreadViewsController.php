@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use App\Support\AuthToken;
 use Illuminate\Support\Facades\Redis;
@@ -92,18 +91,32 @@ class ThreadViewsController extends Controller
             });
 
 
+        $replyCount = DB::table('threads')->where('parent_id', $id)->count();
+
+        // Check if current user liked this thread
+        $isLiked = false;
+        try {
+            $likesRedis = Redis::connection('likes');
+            $isLiked = (bool) $likesRedis->exists("thread:liked:{$id}:{$uid}");
+        } catch (\Throwable $e) {
+            $isLiked = false;
+        }
+
         return response()->json([
             'status' => 'success',
             'data' => [
-                'thread_id'  => $thread->thread_id,
-                'category'   => $thread->category,
-                'content'    => $thread->content,
-                'views'      => $views,
-                'likes'      => $thread->likes_count,
-                'ttl'        => $ttl,
-                'created_at' => $thread->created_at,
-                'author'     => $author,
-                'comments'   => $comments,
+                'thread_id'   => $thread->thread_id,
+                'category'    => $thread->category,
+                'content'     => $thread->content,
+                'views'       => $views,
+                'likes'       => $thread->likes_count,
+                'is_liked'    => $isLiked,
+                'reply_count' => $replyCount,
+                'ttl'         => $ttl,
+                'created_at'  => $thread->created_at,
+                'updated_at'  => $thread->updated_at ?? null,
+                'author'      => $author,
+                'comments'    => $comments,
             ],
         ]);
     }
