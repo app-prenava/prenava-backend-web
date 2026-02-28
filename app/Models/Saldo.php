@@ -22,6 +22,7 @@ class Saldo extends Model
         'type', 
         'keterangan', 
         'status',
+        'admin_id',
         'cancelled_by',
         'cancelled_at'
     ];

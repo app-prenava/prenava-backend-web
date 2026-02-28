@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use App\Support\AuthToken;
 use DateTime;
 
 class InsentifController extends Controller
@@ -17,7 +18,7 @@ class InsentifController extends Controller
      * Ambil daftar ibu hamil beserta saldo mereka
      *
      * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\View\View
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
      */
     public function getDaftarIbuHamil(Request $request)
     {
@@ -170,7 +171,7 @@ class InsentifController extends Controller
      * Ambil riwayat transaksi saldo untuk ibu hamil tertentu
      *
      * @param  int  $userId
-     * @return \Illuminate\View\View
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
      */
     public function getRiwayatSaldo($userId)
     {
@@ -261,7 +262,7 @@ class InsentifController extends Controller
      * Laporan transaksi saldo (untuk admin)
      *
      * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\View\View
+     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
      */
     public function getLaporanTransaksi(Request $request)
     {
@@ -304,5 +305,94 @@ class InsentifController extends Controller
                 'laporan' => 'Terjadi kesalahan saat mengambil laporan: ' . $e->getMessage()
             ]);
         }
+    }
+
+    /**
+     * Get own saldo balance (for ibu_hamil via API)
+     */
+    public function getOwnSaldo(Request $request)
+    {
+        [$uid] = AuthToken::assertRoleFresh($request, 'ibu_hamil');
+
+        $user = User::where('user_id', $uid)->first();
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'User tidak ditemukan'], 404);
+        }
+
+        $totalCredit = Saldo::where('user_id', $uid)
+            ->where('type', 'credit')
+            ->where('status', 'active')
+            ->sum('amount');
+
+        $totalDebit = Saldo::where('user_id', $uid)
+            ->where('type', 'debit')
+            ->where('status', 'active')
+            ->sum('amount');
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'user_id' => $uid,
+                'saldo_total' => $user->saldo_total ?? 0,
+                'total_credit' => $totalCredit,
+                'total_debit' => $totalDebit,
+            ],
+        ]);
+    }
+
+    /**
+     * Get own saldo transaction history (for ibu_hamil via API)
+     */
+    public function getOwnHistory(Request $request)
+    {
+        [$uid] = AuthToken::assertRoleFresh($request, 'ibu_hamil');
+
+        $perPage = (int) $request->query('per_page', 20);
+        if ($perPage > 100) {
+            $perPage = 100;
+        }
+
+        $query = Saldo::where('user_id', $uid);
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->query('type'));
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->query('status'));
+        }
+
+        $history = $query->orderByDesc('created_at')->paginate($perPage);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $history,
+        ]);
+    }
+
+    /**
+     * Get incentive summary (total earned from community activity)
+     */
+    public function getIncentiveSummary(Request $request)
+    {
+        [$uid] = AuthToken::assertRoleFresh($request, 'ibu_hamil');
+
+        $incentives = Saldo::where('user_id', $uid)
+            ->where('type', 'credit')
+            ->where('status', 'active')
+            ->where('keterangan', 'LIKE', 'Insentif%')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $totalEarned = $incentives->sum('amount');
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'total_earned' => $totalEarned,
+                'total_incentives' => $incentives->count(),
+                'incentives' => $incentives,
+            ],
+        ]);
     }
 }
