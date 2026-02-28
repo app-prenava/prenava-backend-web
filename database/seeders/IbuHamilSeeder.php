@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use App\Models\User;
 
 class IbuHamilSeeder extends Seeder
 {
@@ -38,29 +39,37 @@ class IbuHamilSeeder extends Seeder
         foreach ($ibuHamilNames as $index => $name) {
             $email = strtolower(str_replace(' ', '.', $name)) . '@prenava.com';
 
-            $userId = DB::table('users')->insertGetId([
-                'name'       => $name,
-                'email'      => $email,
-                'password'   => Hash::make('password123'),
-                'role'       => 'ibu_hamil',
-                'is_active'  => true,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+            // Use DB::table for firstOrCreate to ensure user_id is always available
+            $user = DB::table('users')->where('email', $email)->first();
 
-            DB::table('user_profile')->insert([
-                'user_id'              => $userId,
-                'photo'                => 'profile/photo.jpg',
-                'tanggal_lahir'        => $this->randomBirthdate(),
-                'alamat'               => $this->randomAddress(),
-                'usia'                 => rand(20, 38),
-                'no_telepon'           => '08' . rand(100000000, 999999999),
-                'pendidikan_terakhir'  => $this->randomEducation(),
-                'pekerjaan'            => $this->randomJob(),
-                'golongan_darah'       => $this->randomBloodType(),
-                'created_at'           => $now,
-                'updated_at'           => $now,
-            ]);
+            if (!$user) {
+                $userId = DB::table('users')->insertGetId([
+                    'name'       => $name,
+                    'email'      => $email,
+                    'password'   => Hash::make('password123'),
+                    'role'       => 'ibu_hamil',
+                    'is_active'  => true,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ], 'user_id');
+            } else {
+                $userId = $user->user_id;
+            }
+
+            DB::table('user_profile')->updateOrInsert(
+                ['user_id' => $userId],
+                [
+                    'photo'                => 'profile/photo.jpg',
+                    'tanggal_lahir'        => $this->randomBirthdate(),
+                    'alamat'               => $this->randomAddress(),
+                    'usia'                 => rand(20, 38),
+                    'no_telepon'           => '08' . rand(100000000, 999999999),
+                    'pendidikan_terakhir'  => $this->randomEducation(),
+                    'pekerjaan'            => $this->randomJob(),
+                    'golongan_darah'       => $this->randomBloodType(),
+                    'updated_at'           => $now,
+                ]
+            );
         }
 
         $this->command->info('Successfully created 20 ibu hamil users.');

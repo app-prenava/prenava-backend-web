@@ -35,7 +35,7 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $adminDinkesId = DB::table('users')->where('email', 'dinkes@prenava.com')->value('id');
+        $adminDinkesId = DB::table('users')->where('email', 'dinkes@prenava.com')->value('user_id');
 
         DB::table('user_dinkes')->updateOrInsert(
             ['user_id' => $adminDinkesId],
@@ -59,7 +59,7 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $ibuHamilId = DB::table('users')->where('email', 'hamil@prenava.com')->value('id');
+        $ibuHamilId = DB::table('users')->where('email', 'hamil@prenava.com')->value('user_id');
 
         DB::table('user_profile')->updateOrInsert(
             ['user_id' => $ibuHamilId],
@@ -88,7 +88,7 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $bidanId = DB::table('users')->where('email', 'bidan.rita@prenava.com')->value('id');
+        $bidanId = DB::table('users')->where('email', 'bidan.rita@prenava.com')->value('user_id');
 
         DB::table('bidan_profile')->updateOrInsert(
             ['user_id' => $bidanId],
