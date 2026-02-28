@@ -16,14 +16,18 @@ return new class extends Migration
             $table->enum('rescheduled_by', ['user', 'bidan'])->nullable()->after('rescheduled_time');
         });
 
-        // Add 'rescheduled' to the status enum
-        DB::statement("ALTER TABLE appointments MODIFY COLUMN status ENUM('requested','accepted','rejected','completed','cancelled','rescheduled') DEFAULT 'requested'");
+        // Add 'rescheduled' to the status enum (MySQL only)
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE appointments MODIFY COLUMN status ENUM('requested','accepted','rejected','completed','cancelled','rescheduled') DEFAULT 'requested'");
+        }
     }
 
     public function down(): void
     {
-        // Revert status enum
-        DB::statement("ALTER TABLE appointments MODIFY COLUMN status ENUM('requested','accepted','rejected','completed','cancelled') DEFAULT 'requested'");
+        // Revert status enum (MySQL only)
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE appointments MODIFY COLUMN status ENUM('requested','accepted','rejected','completed','cancelled') DEFAULT 'requested'");
+        }
 
         Schema::table('appointments', function (Blueprint $table) {
             $table->dropColumn(['cancellation_reason', 'rescheduled_date', 'rescheduled_time', 'rescheduled_by']);
