@@ -398,6 +398,14 @@
     <button type="button" class="sidebar-item" onclick="loadEndpoint('GET', '/api/shop', null, 'My Products')">
         <span class="method-badge method-get">GET</span> <span>My Products</span>
     </button>
+    <button type="button" class="sidebar-item" onclick="loadEndpoint('POST', '/api/shop/create', '{\n  \u0022product_name\u0022: \u0022Test Product\u0022,\n  \u0022description\u0022: \u0022Descr\u0022,\n  \u0022price\u0022: 10000,\n  \u0022stock\u0022: 10\n}', 'Create Product (Needs Image)', true)">
+        <span class="method-badge method-post">POST</span> <span>Create Product <i class="fas fa-image"></i></span>
+    </button>
+
+    <div class="sidebar-section">Admin Management</div>
+    <button type="button" class="sidebar-item" onclick="loadEndpoint('POST', '/api/banner/create', '{\n  \u0022title\u0022: \u0022Promo!\u0022,\n  \u0022is_active\u0022: true\n}', 'Create Banner (Needs Image)', true)">
+        <span class="method-badge method-post">POST</span> <span>Create Banner <i class="fas fa-image"></i></span>
+    </button>
 </aside>
 
 <!-- Main Content -->
@@ -444,13 +452,31 @@
             </div>
 
             <div class="tab-pills mb-3">
-                <button class="tab-pill active" onclick="switchTab(this, 'bodyTab')">Body</button>
+                <button class="tab-pill active" onclick="switchTab(this, 'bodyTab')">Raw (JSON)</button>
+                <button class="tab-pill" id="formDataTabBtn" onclick="switchTab(this, 'formDataTab')">Form (Files)</button>
                 <button class="tab-pill" onclick="switchTab(this, 'headersTab')">Headers</button>
                 <button class="tab-pill" onclick="switchTab(this, 'paramsTab')">Params</button>
             </div>
 
             <div id="bodyTab">
                 <textarea class="body-editor" id="reqBody" placeholder='{ "key": "value" }'></textarea>
+            </div>
+            
+            <div id="formDataTab" style="display:none; margin-bottom: 2rem;">
+                <div id="formDataRows">
+                    <!-- Default Row -->
+                    <div class="form-data-row mb-2" style="display: flex; gap: 10px;">
+                        <input type="text" class="fd-key" placeholder="Key (e.g. photo)" style="flex:1;">
+                        <select class="fd-type" onchange="toggleFdInput(this)" style="width:100px;">
+                            <option value="text">Text</option>
+                            <option value="file">File</option>
+                        </select>
+                        <input type="text" class="fd-value-text" placeholder="Value" style="flex:2;">
+                        <input type="file" class="fd-value-file" style="flex:2; display:none;">
+                        <button class="btn btn-sm btn-outline-danger" onclick="this.parentElement.remove()">X</button>
+                    </div>
+                </div>
+                <button class="btn btn-sm mt-2" style="background:var(--card-bg); border: 1px solid var(--border-color); color:var(--text-light)" onclick="addFdRow()"><i class="fas fa-plus"></i> Add Row</button>
             </div>
             <div id="headersTab" style="display:none">
                 <textarea class="body-editor" id="reqHeaders" placeholder='Custom headers (JSON), e.g.: { "X-Custom": "value" }'></textarea>
@@ -517,28 +543,32 @@
     function getBase() { return document.getElementById('baseUrl').value.replace(/\/+$/, ''); }
     function getToken() { return document.getElementById('authToken').value.trim(); }
 
-    function loadEndpoint(method, url, body, title) {
+    function updateMethodColor(select) {
+        const val = select.value;
+        if(val === 'GET') select.style.color = 'var(--accent-blue)';
+        if(val === 'POST') select.style.color = 'var(--accent-green)';
+        if(val === 'PUT' || val === 'PATCH') select.style.color = 'var(--accent-orange)';
+        if(val === 'DELETE') select.style.color = 'var(--accent-red)';
+    }
+
+    function loadEndpoint(method, url, defaultBody = null, title = null, isForm = false) {
         document.getElementById('reqMethod').value = method;
         document.getElementById('reqUrl').value = url;
-        document.getElementById('reqBody').value = body || '';
-        document.getElementById('requestTitle').textContent = title || 'Request';
-        updateMethodColor(document.getElementById('reqMethod'));
-
+        
+        if (title) document.getElementById('requestTitle').textContent = title;
+        
         // Highlight active sidebar item
         document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
         event.currentTarget.classList.add('active');
-    }
-
-    function updateMethodColor(select) {
-        const colors = { GET: '#22c55e', POST: '#3b82f6', PUT: '#f59e0b', PATCH: '#8b5cf6', DELETE: '#ef4444' };
         select.style.color = colors[select.value] || '#e2e8f0';
     }
 
     function switchTab(btn, tabId) {
         document.querySelectorAll('.tab-pill').forEach(p => p.classList.remove('active'));
         btn.classList.add('active');
-        ['bodyTab', 'headersTab', 'paramsTab'].forEach(id => {
-            document.getElementById(id).style.display = id === tabId ? 'block' : 'none';
+        ['bodyTab', 'formDataTab', 'headersTab', 'paramsTab'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = id === tabId ? 'block' : 'none';
         });
     }
 
@@ -565,21 +595,51 @@
             } catch (e) { /* ignore */ }
         }
 
+        // Determine if we should use FormData or JSON
+        let useFormData = document.getElementById('formDataTabBtn').classList.contains('active');
+        let finalBody = null;
+
         // Build headers
         const headers = { 'Accept': 'application/json' };
         if (token) headers['Authorization'] = 'Bearer ' + token;
-        if (bodyRaw && method !== 'GET') headers['Content-Type'] = 'application/json';
-
-        // Merge custom headers
+        
+        // Merge custom headers BEFORE overriding Content-Type
         if (headersRaw) {
             try { Object.assign(headers, JSON.parse(headersRaw)); } catch (e) { /* ignore */ }
         }
 
+        if (method !== 'GET') {
+            if (useFormData) {
+                // Do NOT set Content-Type for FormData, browser sets it with boundary
+                delete headers['Content-Type']; 
+                finalBody = new FormData();
+                const rows = document.querySelectorAll('.form-data-row');
+                rows.forEach(row => {
+                    const key = row.querySelector('.fd-key').value.trim();
+                    const type = row.querySelector('.fd-type').value;
+                    if (!key) return;
+
+                    if (type === 'file') {
+                        const fileInput = row.querySelector('.fd-value-file');
+                        if (fileInput.files.length > 0) {
+                            finalBody.append(key, fileInput.files[0]);
+                        }
+                    } else {
+                        const textVal = row.querySelector('.fd-value-text').value;
+                        finalBody.append(key, textVal);
+                    }
+                });
+            } else {
+                if (bodyRaw) {
+                    headers['Content-Type'] = 'application/json';
+                    finalBody = bodyRaw;
+                }
+            }
+        }
+
         // Build options
         const opts = { method, headers };
-        if (bodyRaw && method !== 'GET') {
-            opts.body = bodyRaw;
-        }
+        if (finalBody) opts.body = finalBody;
 
         // UI feedback
         const sendBtn = document.getElementById('sendBtn');
