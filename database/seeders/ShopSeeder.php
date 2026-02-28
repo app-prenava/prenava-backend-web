@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ShopSeeder extends Seeder
 {
@@ -11,7 +12,6 @@ class ShopSeeder extends Seeder
     {
         $now = now();
 
-        // Produk kehamilan dengan gambar dari Supabase Storage
         $products = [
             [
                 'product_name' => 'Pregnancy Pillow - Bantal Hamil U-Shape',
@@ -186,7 +186,16 @@ class ShopSeeder extends Seeder
             $sellerId = DB::table('users')->first()->user_id;
         }
 
+        // Ensure shop directory exists
+        Storage::disk('public')->makeDirectory('shop');
+
         foreach ($products as $product) {
+            // Generate a placeholder image if the file doesn't exist
+            $photoPath = $product['photo']; // e.g. "shop/nursing-bra.png"
+            if (!Storage::disk('public')->exists($photoPath)) {
+                $this->generatePlaceholderImage($photoPath, $product['product_name']);
+            }
+
             DB::table('shop')->insert([
                 'user_id' => $sellerId,
                 'product_name' => $product['product_name'],
@@ -202,6 +211,44 @@ class ShopSeeder extends Seeder
             ]);
         }
 
-        $this->command->info("Successfully created " . count($products) . " shop products with Supabase Storage paths.");
+        $this->command->info("Successfully created " . count($products) . " shop products with matching image files.");
+    }
+
+    private function generatePlaceholderImage(string $path, string $label): void
+    {
+        $width = 400;
+        $height = 400;
+        $img = imagecreatetruecolor($width, $height);
+
+        // Background color (soft pink to match app theme)
+        $bg = imagecolorallocate($img, 250, 105, 120);
+        imagefill($img, 0, 0, $bg);
+
+        // Text color
+        $white = imagecolorallocate($img, 255, 255, 255);
+
+        // Word-wrap the label
+        $fontSize = 4; // built-in font size 1-5
+        $maxCharsPerLine = 20;
+        $lines = explode("\n", wordwrap($label, $maxCharsPerLine, "\n", true));
+
+        $lineHeight = imagefontheight($fontSize) + 4;
+        $totalHeight = count($lines) * $lineHeight;
+        $startY = ($height - $totalHeight) / 2;
+
+        foreach ($lines as $i => $line) {
+            $textWidth = imagefontwidth($fontSize) * strlen($line);
+            $x = ($width - $textWidth) / 2;
+            $y = (int)($startY + $i * $lineHeight);
+            imagestring($img, $fontSize, (int)$x, $y, $line, $white);
+        }
+
+        // Save as PNG
+        ob_start();
+        imagepng($img);
+        $pngData = ob_get_clean();
+        imagedestroy($img);
+
+        Storage::disk('public')->put($path, $pngData);
     }
 }
