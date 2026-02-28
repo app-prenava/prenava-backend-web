@@ -157,14 +157,12 @@ class BannerController extends Controller
         ]);
     }
 
-    /** @return \Illuminate\Support\Collection */
     private function transformBannerPhotos(Collection $rows): Collection
     {
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
-        $disk = Storage::disk('public');
-
-        return $rows->map(function ($r) use ($disk) {
-            $r->photo = $disk->url($r->photo);
+        return $rows->map(function ($r) {
+            if (!empty($r->photo)) {
+                $r->photo = url('storage/' . ltrim($r->photo, '/'));
+            }
             return $r;
         });
     }
