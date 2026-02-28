@@ -9,6 +9,8 @@ services:
     container_name: prenava-app
     restart: unless-stopped
     working_dir: /var/www
+    env_file:
+      - .env
     volumes:
       - prenava-public-data:/var/www/public
       - prenava-storage-data:/var/www/storage
