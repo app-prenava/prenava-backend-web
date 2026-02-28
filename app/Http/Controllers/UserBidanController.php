@@ -39,6 +39,7 @@ class UserBidanController extends Controller
 
         // Calculate distance and format response
         $result = $locations->map(function ($location) use ($request) {
+            /** @var \App\Models\BidanLocation $location */
             $data = [
                 'location_id' => $location->bidan_location_id,
                 'bidan_id' => $location->bidan_id,
@@ -292,10 +293,9 @@ class UserBidanController extends Controller
     {
         [$userId] = AuthToken::uidRoleOrFail($request);
 
-        $query = Appointment::with(['bidan:user_id,name,email', 'location'])
+        $query = Appointment::with(['bidan:user_id,name,email', 'location', 'consent'])
             ->where('user_id', $userId);
 
-        // Filter by status
         if ($request->has('status')) {
             $query->where('status', $request->status);
         }
@@ -361,7 +361,7 @@ class UserBidanController extends Controller
             ], 400);
         }
 
-        $appointment->cancel();
+        $appointment->cancel($request->reason);
 
         return response()->json([
             'status' => 'success',
@@ -369,4 +369,97 @@ class UserBidanController extends Controller
             'data' => $appointment->fresh(),
         ]);
     }
+
+    /**
+     * Reschedule appointment (user requests new date/time)
+     * PATCH /api/user/appointments/{id}/reschedule
+     */
+    public function rescheduleAppointment(Request $request, int $id): JsonResponse
+    {
+        [$userId] = AuthToken::uidRoleOrFail($request);
+
+        $appointment = Appointment::where('user_id', $userId)
+            ->where('appointment_id', $id)
+            ->first();
+
+        if (!$appointment) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Appointment tidak ditemukan',
+            ], 404);
+        }
+
+        if (!$appointment->canReschedule()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Appointment tidak dapat dijadwalkan ulang',
+            ], 400);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'preferred_date' => 'required|date|after_or_equal:today',
+            'preferred_time' => 'required|date_format:H:i',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $appointment->reschedule(
+            $request->preferred_date,
+            $request->preferred_time,
+            'user'
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Appointment berhasil dijadwalkan ulang. Menunggu konfirmasi bidan.',
+            'data' => $appointment->fresh(),
+        ]);
+    }
+
+    /**
+     * Get appointment statistics for user
+     * GET /api/user/appointments/stats
+     */
+    public function getAppointmentStats(Request $request): JsonResponse
+    {
+        [$userId] = AuthToken::uidRoleOrFail($request);
+
+        $stats = [
+            'requested' => Appointment::where('user_id', $userId)->where('status', 'requested')->count(),
+            'accepted' => Appointment::where('user_id', $userId)->where('status', 'accepted')->count(),
+            'completed' => Appointment::where('user_id', $userId)->where('status', 'completed')->count(),
+            'cancelled' => Appointment::where('user_id', $userId)->where('status', 'cancelled')->count(),
+            'rejected' => Appointment::where('user_id', $userId)->where('status', 'rejected')->count(),
+            'rescheduled' => Appointment::where('user_id', $userId)->where('status', 'rescheduled')->count(),
+            'total' => Appointment::where('user_id', $userId)->count(),
+        ];
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $stats,
+        ]);
+    }
+
+    /**
+     * Get consultation types
+     * GET /api/user/consultation-types
+     */
+    public function getConsultationTypes(): JsonResponse
+    {
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                ['key' => 'visit', 'label' => 'Kunjungan'],
+                ['key' => 'consultation', 'label' => 'Konsultasi'],
+                ['key' => 'checkup', 'label' => 'Pemeriksaan'],
+            ],
+        ]);
+    }
 }
+

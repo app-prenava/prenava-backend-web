@@ -25,7 +25,11 @@ class Appointment extends Model
         'notes',
         'bidan_notes',
         'rejection_reason',
+        'cancellation_reason',
         'consultation_type',
+        'rescheduled_date',
+        'rescheduled_time',
+        'rescheduled_by',
     ];
 
     protected $casts = [
@@ -33,6 +37,8 @@ class Appointment extends Model
         'preferred_time' => 'datetime:H:i',
         'confirmed_date' => 'date',
         'confirmed_time' => 'datetime:H:i',
+        'rescheduled_date' => 'date',
+        'rescheduled_time' => 'datetime:H:i',
     ];
 
     // Status constants
@@ -41,6 +47,7 @@ class Appointment extends Model
     const STATUS_REJECTED = 'rejected';
     const STATUS_COMPLETED = 'completed';
     const STATUS_CANCELLED = 'cancelled';
+    const STATUS_RESCHEDULED = 'rescheduled';
 
     // Consultation type constants
     const TYPE_VISIT = 'visit';
@@ -151,7 +158,7 @@ class Appointment extends Model
     /**
      * Reject appointment
      */
-    public function reject(string $reason = null): void
+    public function reject(?string $reason = null): void
     {
         $this->update([
             'status' => self::STATUS_REJECTED,
@@ -173,9 +180,34 @@ class Appointment extends Model
     /**
      * Cancel appointment (by user)
      */
-    public function cancel(): void
+    public function cancel(?string $reason = null): void
     {
-        $this->update(['status' => self::STATUS_CANCELLED]);
+        $data = ['status' => self::STATUS_CANCELLED];
+        if ($reason) {
+            $data['cancellation_reason'] = $reason;
+        }
+        $this->update($data);
+    }
+
+    /**
+     * Reschedule appointment
+     */
+    public function reschedule(string $date, string $time, string $by): void
+    {
+        $this->update([
+            'status' => self::STATUS_RESCHEDULED,
+            'rescheduled_date' => $date,
+            'rescheduled_time' => $time,
+            'rescheduled_by' => $by,
+        ]);
+    }
+
+    /**
+     * Check if appointment can be rescheduled
+     */
+    public function canReschedule(): bool
+    {
+        return in_array($this->status, [self::STATUS_REQUESTED, self::STATUS_ACCEPTED]);
     }
 
     /**

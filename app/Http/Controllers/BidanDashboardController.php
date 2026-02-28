@@ -351,4 +351,69 @@ class BidanDashboardController extends Controller
             'data' => $appointment->fresh(),
         ]);
     }
+
+    /**
+     * Reschedule appointment (bidan proposes new date/time)
+     * PATCH /api/bidan/appointments/{id}/reschedule
+     */
+    public function rescheduleAppointment(Request $request, int $id): JsonResponse
+    {
+        [$userId, $role] = AuthToken::uidRoleOrFail($request);
+
+        if ($role !== 'bidan') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Akses ditolak',
+            ], 403);
+        }
+
+        $appointment = Appointment::where('bidan_id', $userId)
+            ->where('appointment_id', $id)
+            ->first();
+
+        if (!$appointment) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Appointment tidak ditemukan',
+            ], 404);
+        }
+
+        if (!$appointment->canReschedule()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Appointment tidak dapat dijadwalkan ulang',
+            ], 400);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'confirmed_date' => 'required|date|after_or_equal:today',
+            'confirmed_time' => 'required|date_format:H:i',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $appointment->reschedule(
+            $request->confirmed_date,
+            $request->confirmed_time,
+            'bidan'
+        );
+
+        if ($request->filled('notes')) {
+            $appointment->update(['bidan_notes' => $request->notes]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Appointment berhasil dijadwalkan ulang',
+            'data' => $appointment->fresh(),
+        ]);
+    }
 }
+
