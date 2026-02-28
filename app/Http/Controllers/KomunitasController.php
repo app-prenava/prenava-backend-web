@@ -56,17 +56,17 @@ class KomunitasController extends Controller
 
     public function indexid($id)
     {
-        
-        $result = komunitas::findOrFail($id);
-        return response()->json($result);
-    
+        $komunitas = Komunitas::find($id);
+
         if (!$komunitas) {
             return response()->json([
-                'message' => 'Data tidak ditemukan untuk post_id: ' . $request->post_id
+                'status' => 'error',
+                'message' => 'Data tidak ditemukan untuk post_id: ' . $id
             ], 404);
         }
-    
+
         return response()->json([
+            'status' => 'success',
             'Komunitas' => $komunitas
         ]);
     }
@@ -85,21 +85,29 @@ class KomunitasController extends Controller
         $user = $this->resolveAuthenticatedUser();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 401);
-            }
-            
+        }
+        
         $request->validate([
             'judul' => 'required',
             'deskripsi' => 'required',
+            'gambar' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:1024',
         ]);
+
+        $gambarPath = null;
+        if ($request->hasFile('gambar')) {
+            $gambarPath = $request->file('gambar')->store('komunitas', 'public');
+            $gambarPath = asset('storage/' . $gambarPath);
+        } elseif ($request->gambar && is_string($request->gambar)) {
+            $gambarPath = $request->gambar;
+        }
 
         $komunitas = Komunitas::create([
             'user_id' => $user->user_id,
             'judul' => $request->judul,
             'deskripsi' => $request->deskripsi,
-            'gambar' => $request->gambar,
+            'gambar' => $gambarPath,
             'apresiasi' => 0, 
             'komen' => 0, 
-            
         ]);
         
         return response()->json([
@@ -252,12 +260,16 @@ public function addComment(Request $request, $postId)
                 // Increase like count
                 $post->increment('apresiasi');
                 
-                // Refresh post data to get updated apresiasi count
+            // Refresh post data to get updated apresiasi count
                 $post->refresh();
                 
-                // Check for incentive (99+ likes)
+                // Check for incentive based on configurable threshold
+                $threshold = (int) DB::table('parameterized')
+                    ->where('key', 'INCENTIVE_LIKE_THRESHOLD')
+                    ->value('value') ?: 99;
+
                 $incentiveMessage = '';
-                if ($post->apresiasi >= 1) {
+                if ($post->apresiasi >= $threshold) {
                     $incentiveResult = $this->checkAndGiveIncentive($post);
                     if ($incentiveResult['given']) {
                         $incentiveMessage = $incentiveResult['message'];
@@ -301,8 +313,8 @@ public function addComment(Request $request, $postId)
             // Check if this post has already received incentive
             // Assuming you have a table to track incentives or use a flag in posts table
             // Option 1: Check if there's already an incentive record for this post
-            $existingIncentive = Saldo::where('user_id', $postOwner->id)
-                                    ->where('keterangan', 'LIKE', 'Insentif 99+ likes untuk post ID: ' . $post->id)
+            $existingIncentive = Saldo::where('user_id', $postOwner->user_id)
+                                    ->where('keterangan', 'LIKE', 'Insentif 99+ likes untuk post ID: ' . $post->post_id)
                                     ->first();
             
             if ($existingIncentive) {
@@ -311,10 +323,10 @@ public function addComment(Request $request, $postId)
             
             // Give incentive
             $saldo = new Saldo();
-            $saldo->user_id = $postOwner->id;
-            $saldo->amount = 5000;
-            $saldo->type = 'credit'; // kredit (penambahan)
-            $saldo->keterangan = 'Insentif 99+ likes untuk post ID: ' . $post->id;
+            $saldo->user_id = $postOwner->user_id;
+            $saldo->setAttribute('amount', 5000);
+            $saldo->type = 'credit';
+            $saldo->keterangan = 'Insentif 99+ likes untuk post ID: ' . $post->post_id;
             $saldo->save();
 
             // Update total saldo pada user
@@ -338,7 +350,7 @@ public function addComment(Request $request, $postId)
         ]);
 
         // Cek apakah user sudah memberikan like pada post ini
-        $existingLike = Like::where('komunitas_id', $postId)
+        $existingLike = Like::where('post_id', $postId)
                             ->where('user_id', $request->user_id)
                             ->exists();
         

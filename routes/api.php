@@ -40,6 +40,7 @@ use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\AdminBidanController;
 use App\Http\Controllers\BidanDashboardController;
 use App\Http\Controllers\UserBidanController;
+use App\Http\Controllers\InsentifController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -137,6 +138,7 @@ Route::middleware(['auth:api'])->group(function () {
 Route::prefix('threads')->group(function () {
     Route::get('/main', [ThreadsController::class, 'getAll']);
     Route::post('/create', [ThreadsController::class, 'create']);
+    Route::put('/update/{id}', [ThreadsController::class, 'update']);
     Route::get('/detail/{id}', [ThreadViewsController::class, 'detail']);
     Route::post('/like/{id}', [ThreadLikesController::class, 'like']);
     Route::get('/views/cache', [ThreadViewsController::class, 'showCache']);
@@ -317,6 +319,7 @@ Route::prefix('bidan')->middleware(['auth:api'])->group(function () {
     Route::patch('/appointments/{id}/accept', [BidanDashboardController::class, 'acceptAppointment']);
     Route::patch('/appointments/{id}/reject', [BidanDashboardController::class, 'rejectAppointment']);
     Route::patch('/appointments/{id}/complete', [BidanDashboardController::class, 'completeAppointment']);
+    Route::patch('/appointments/{id}/reschedule', [BidanDashboardController::class, 'rescheduleAppointment']);
 });
 
 // User (Mobile) Routes for Bidan Discovery & Appointments (Protected: role=ibu_hamil)
@@ -327,11 +330,21 @@ Route::prefix('user')->middleware(['auth:api'])->group(function () {
     
     // Consent Info
     Route::get('/consent-info', [UserBidanController::class, 'getConsentInfo']);
-    
+
+    // Saldo & Incentives
+    Route::get('/saldo', [InsentifController::class, 'getOwnSaldo']);
+    Route::get('/saldo/history', [InsentifController::class, 'getOwnHistory']);
+    Route::get('/incentives/summary', [InsentifController::class, 'getIncentiveSummary']);
+
     // Appointments
     Route::post('/appointments', [UserBidanController::class, 'createAppointment']);
     Route::get('/appointments', [UserBidanController::class, 'getAppointments']);
+    Route::get('/appointments/stats', [UserBidanController::class, 'getAppointmentStats']);
     Route::get('/appointments/{id}', [UserBidanController::class, 'getAppointmentDetail']);
     Route::patch('/appointments/{id}/cancel', [UserBidanController::class, 'cancelAppointment']);
+    Route::patch('/appointments/{id}/reschedule', [UserBidanController::class, 'rescheduleAppointment']);
+
+    // Consultation Types
+    Route::get('/consultation-types', [UserBidanController::class, 'getConsultationTypes']);
 });
 
