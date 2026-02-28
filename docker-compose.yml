@@ -27,7 +27,7 @@ services:
     container_name: prenava-nginx
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "${APP_PORT:-80}:80"
     volumes:
       - prenava-public-data:/var/www/public
       - prenava-storage-data:/var/www/storage
