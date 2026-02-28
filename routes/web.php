@@ -9,6 +9,7 @@ use App\Http\Controllers\DeteksiDesktopController;
 use App\Http\Controllers\PrediksiDepresiDesktopController;
 use App\Http\Controllers\IconsController;
 use App\Http\Controllers\PredictionDesktopController;
+use Illuminate\Support\Facades\Auth;
 
 
 /*
@@ -25,6 +26,10 @@ use App\Http\Controllers\PredictionDesktopController;
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/api-tester', function () {
+    return view('api-tester');
+})->name('api-tester');
 
 // Disable password reset routes karena ForgotPasswordController tidak ada
 Auth::routes(['reset' => false, 'verify' => false]);
@@ -106,10 +111,12 @@ Route::prefix('dinkes')->group(function () {
 
 // Home route (redirect based on role)
 Route::get('/home', function() {
-    if (auth()->check()) {
-        if (auth()->user()->role === 'bidan') {
+    if (Auth::check()) {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        if ($user->role === 'bidan') {
             return redirect()->route('bidan.dashboard');
-        } elseif (auth()->user()->role === 'dinkes') {
+        } elseif ($user->role === 'dinkes') {
             return redirect()->route('dinkes.dashboard');
         }
     }
