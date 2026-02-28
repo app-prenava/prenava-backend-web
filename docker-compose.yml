@@ -17,8 +17,10 @@ services:
     networks:
       - prenava-network
     depends_on:
-      - mysql
-      - redis
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   nginx:
     image: nginx:alpine
@@ -52,6 +54,11 @@ services:
     networks:
       - prenava-network
     command: --collation-server=utf8mb4_unicode_ci --character-set-server=utf8mb4
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:alpine
