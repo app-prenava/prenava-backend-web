@@ -25,6 +25,7 @@ COPY ./docker/php.ini /usr/local/etc/php/conf.d/custom.ini
 COPY ./docker/Caddyfile /etc/caddy/Caddyfile
 COPY . /app
 COPY --from=vendor /app/vendor /app/vendor
+COPY --from=vendor /usr/local/bin/composer /usr/local/bin/composer
 COPY ./docker/laravel-cron /etc/cron.d/laravel-cron
 
 RUN chmod 0644 /etc/cron.d/laravel-cron && crontab /etc/cron.d/laravel-cron && touch /var/log/cron.log

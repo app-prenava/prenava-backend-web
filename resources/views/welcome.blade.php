@@ -5,7 +5,7 @@
     <div class="row justify-content-center">
         <div class="col-md-10">
             <div class="text-center mb-5">
-                <h1 class="display-4 fw-bold">Sistem Informasi Kesehatan Ibu Hamil</h1>
+                <h1 class="display-4 fw-bold"> Prenava</h1>
                 <p class="lead">Platform terpadu untuk pemantauan dan layanan kesehatan ibu hamil</p>
             </div>
         </div>
