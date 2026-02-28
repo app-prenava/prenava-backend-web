@@ -654,8 +654,14 @@
 
     function quickLogin(role) {
         loginRole = role;
-        document.getElementById('loginEmail').value = '';
-        document.getElementById('loginPassword').value = '';
+        
+        let defaultEmail = '';
+        if (role === 'ibu_hamil') defaultEmail = 'hamil@prenava.com';
+        if (role === 'bidan') defaultEmail = 'bidan.rita@prenava.com';
+        if (role === 'admin') defaultEmail = 'admin@prenava.com';
+        
+        document.getElementById('loginEmail').value = defaultEmail;
+        document.getElementById('loginPassword').value = 'password123';
         document.getElementById('loginError').style.display = 'none';
         document.getElementById('loginEmail').placeholder = 'Enter ' + role + ' email';
         new bootstrap.Modal(document.getElementById('loginModal')).show();
