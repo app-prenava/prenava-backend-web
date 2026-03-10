@@ -6,6 +6,7 @@ use App\Http\Controllers\AirQualityController;
 use App\Http\Controllers\CatatanController;
 use App\Http\Controllers\KomunitasController;
 use App\Http\Controllers\PrediksiDepresiController;
+use App\Http\Controllers\DepressionScanController;
 use App\Http\Controllers\RekomendasiMakananController;
 use App\Http\Controllers\KickCounterController;
 use App\Http\Controllers\SkorEpdsController;
@@ -258,6 +259,8 @@ Route::group(['middleware' => 'auth:api'], function () {
     Route::delete('/products/{product}', [ProductController::class, 'destroy']);
 
 
+    // Depression Face Scan
+    Route::post('/depression-scan', [DepressionScanController::class, 'scan']);
 });
 
 
