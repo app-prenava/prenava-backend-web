@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\ActivityLog;
+use App\Services\ActivityLogService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -55,6 +57,14 @@ class AuthController extends Controller
             'is_active' => true,
         ]);
 
+        // Log registrasi
+        ActivityLogService::logFromUser(
+            ActivityLog::TYPE_REGISTER,
+            $user,
+            "User {$user->name} berhasil melakukan registrasi.",
+            request: $request
+        );
+
         return response()->json([
             'status'  => 'success',
             'message' => 'User registered successfully',
@@ -87,6 +97,14 @@ class AuthController extends Controller
 
         $token = $this->issueToken($user);
 
+        // Log login
+        ActivityLogService::logFromUser(
+            ActivityLog::TYPE_LOGIN,
+            $user,
+            "User {$user->name} berhasil login.",
+            request: $request
+        );
+
         $ttlMap   = config('auth_tokens.ttl_seconds');
         $ttlSec   = $ttlMap[$user->role] ?? ($ttlMap['default'] ?? 0);
 
@@ -106,9 +124,24 @@ class AuthController extends Controller
         ]);
     }
 
-    public function logout(): JsonResponse
+    public function logout(Request $request): JsonResponse
     {
-        try { \Tymon\JWTAuth\Facades\JWTAuth::invalidate(\Tymon\JWTAuth\Facades\JWTAuth::getToken()); } catch (\Throwable $e) {}
+        // Log logout sebelum invalidate token
+        try {
+            $payload = JWTAuth::parseToken()->getPayload();
+            $uid  = (int) $payload->get('uid');
+            $user = User::select('user_id','name','email','role')->find($uid);
+            if ($user) {
+                ActivityLogService::logFromUser(
+                    ActivityLog::TYPE_LOGOUT,
+                    $user,
+                    "User {$user->name} berhasil logout.",
+                    request: $request
+                );
+            }
+        } catch (\Throwable $e) {}
+
+        try { JWTAuth::invalidate(JWTAuth::getToken()); } catch (\Throwable $e) {}
 
         return response()->json(['status'=>'success','message'=>'Successfully logged out']);
     }
@@ -178,6 +211,17 @@ class AuthController extends Controller
                 'token_version' => DB::raw('token_version + 1'),
                 'updated_at'    => now(),
             ]);
+
+        // Log ganti password
+        ActivityLogService::log(
+            ActivityLog::TYPE_CHANGE_PASSWORD,
+            $uid,
+            $user->name ?? null,
+            $user->email ?? null,
+            $user->role ?? null,
+            "User berhasil mengganti password.",
+            request: $request
+        );
 
         return response()->json([
             'status'  => 'success',

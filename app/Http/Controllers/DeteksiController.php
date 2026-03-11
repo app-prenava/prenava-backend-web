@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 use App\Models\DeteksiPenyakit;
+use App\Models\ActivityLog;
+use App\Services\ActivityLogService;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 
 class DeteksiController extends Controller
@@ -118,7 +121,16 @@ class DeteksiController extends Controller
                 'hypertension_prediction' => $prediction['hypertension_prediction'],
                 'maternal_health_prediction' => $prediction['maternal_health_prediction'],
             ]);
-    
+
+            // Log deteksi anemia/risiko penyakit
+            ActivityLogService::logFromUser(
+                ActivityLog::TYPE_DETEKSI_ANEMIA,
+                $user,
+                "User {$user->name} melakukan deteksi risiko penyakit maternal.",
+                ['predictions' => $prediction],
+                $request
+            );
+
             return response()->json([
                 'status' => 'success',
                 'message' => 'Data successfully stored and prediction retrieved',

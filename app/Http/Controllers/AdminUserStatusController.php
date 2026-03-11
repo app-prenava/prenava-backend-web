@@ -6,6 +6,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use App\Support\AuthToken;
+use App\Models\ActivityLog;
+use App\Services\ActivityLogService;
+use App\Models\User;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
 
@@ -27,8 +30,19 @@ class AdminUserStatusController extends Controller
             ]);
 
         if (!$updated) {
-            return response()->json(['status'=>'error','message'=>'User not found.'], 404);
+            return response()->json(['status'=>'error','message'=>'User found.'], 404);
         }
+
+        // Log deactivation
+        $adminUser = User::find($request->user()->user_id ?? $request->user()->id);
+        $affectedUser = User::find($userId);
+        ActivityLogService::logFromUser(
+            ActivityLog::TYPE_DEACTIVATED,
+            $adminUser,
+            "Admin {$adminUser->name} menonaktifkan akun user: " . ($affectedUser->name ?? $userId),
+            ['affected_user_id' => $userId],
+            $request
+        );
 
         return response()->json([
             'status'  => 'success',
@@ -52,8 +66,19 @@ class AdminUserStatusController extends Controller
             ]);
 
         if (!$updated) {
-            return response()->json(['status'=>'error','message'=>'User not found.'], 404);
+            return response()->json(['status'=>'error','message'=>'User found.'], 404);
         }
+
+        // Log activation
+        $adminUser = User::find($request->user()->user_id ?? $request->user()->id);
+        $affectedUser = User::find($userId);
+        ActivityLogService::logFromUser(
+            ActivityLog::TYPE_ACTIVATED,
+            $adminUser,
+            "Admin {$adminUser->name} mengaktifkan kembali akun user: " . ($affectedUser->name ?? $userId),
+            ['affected_user_id' => $userId],
+            $request
+        );
 
         return response()->json([
             'status'  => 'success',

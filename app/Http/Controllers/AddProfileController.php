@@ -11,6 +11,9 @@ use Tymon\JWTAuth\Exceptions\TokenExpiredException;
 use Tymon\JWTAuth\Exceptions\TokenInvalidException;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use App\Support\AuthToken;
+use App\Models\ActivityLog;
+use App\Services\ActivityLogService;
+use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 
 class AddProfileController extends Controller
@@ -302,6 +305,17 @@ class AddProfileController extends Controller
 
         DB::table('bidan_profile')->where('user_id', $uid)->update($data);
 
+        // Log profil update
+        $user = User::select('user_id','name','email','role')->find($uid);
+        if ($user) {
+            ActivityLogService::logFromUser(
+                ActivityLog::TYPE_UPDATE_PROFILE,
+                $user,
+                "Bidan {$user->name} berhasil mengupdate profil praktik.",
+                request: $req
+            );
+        }
+
         return response()->json(['status'=>'success','message'=>'Profile kamu berhasil diupdate']);
     }
 
@@ -337,6 +351,17 @@ class AddProfileController extends Controller
         $data['updated_at'] = now();
 
         DB::table('user_dinkes')->where('user_id', $uid)->update($data);
+
+        // Log profil update
+        $user = User::select('user_id','name','email','role')->find($uid);
+        if ($user) {
+            ActivityLogService::logFromUser(
+                ActivityLog::TYPE_UPDATE_PROFILE,
+                $user,
+                "Pegawai Dinkes {$user->name} berhasil mengupdate profil.",
+                request: $req
+            );
+        }
 
         return response()->json(['status'=>'success','message'=>'Akun kamu berhasil diupdate']);
     }
@@ -382,6 +407,16 @@ class AddProfileController extends Controller
 
         DB::table('user_profile')->where('user_id', $uid)->update($data);
 
+        // Log profil update
+        $user = User::select('user_id','name','email','role')->find($uid);
+        if ($user) {
+            ActivityLogService::logFromUser(
+                ActivityLog::TYPE_UPDATE_PROFILE,
+                $user,
+                "Ibu {$user->name} berhasil mengupdate profil biodata.",
+                request: $req
+            );
+        }
 
         return response()->json(['status'=>'success','message'=>'Profile kamu berhasil diupdate']);
         

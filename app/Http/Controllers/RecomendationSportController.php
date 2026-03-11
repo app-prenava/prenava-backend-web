@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use App\Support\AuthToken;
+use App\Models\ActivityLog;
+use App\Services\ActivityLogService;
+use App\Models\User;
 use Carbon\Carbon;
 
 class RecomendationSportController extends Controller
@@ -133,6 +136,17 @@ class RecomendationSportController extends Controller
 
         if (!empty($ml['all_ranked'])) {
             $ml['all_ranked'] = array_map($enrich, $ml['all_ranked']);
+        }
+
+        // Log rekomendasi gerakan
+        $user = User::find($uid);
+        if ($user) {
+            ActivityLogService::logFromUser(
+                ActivityLog::TYPE_REKOMENDASI_GERAKAN,
+                $user,
+                "Ibu {$user->name} melihat rekomendasi gerakan/olahraga.",
+                request: request()
+            );
         }
 
         return response()->json([

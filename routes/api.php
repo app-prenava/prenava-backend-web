@@ -35,6 +35,7 @@ use App\Http\Controllers\ThreadBookmarksController;
 use App\Http\Controllers\TipCategoryController;
 use App\Http\Controllers\PregnancyTipController;
 use App\Http\Controllers\CatatanIbuController;
+use App\Http\Controllers\HistoryLogController;
 
 // Bidan Subscription Controllers
 use App\Http\Controllers\SubscriptionController;
@@ -308,6 +309,11 @@ Route::prefix('admin')->middleware(['auth:api'])->group(function () {
     Route::get('/bidan-locations', [AdminBidanController::class, 'getBidanLocations']);
     Route::put('/bidan-locations/{id}', [AdminBidanController::class, 'updateBidanLocation']);
     Route::patch('/bidan-locations/{id}/toggle-active', [AdminBidanController::class, 'toggleLocationActive']);
+
+    // History Log
+    Route::get('/history-log', [HistoryLogController::class, 'index']);
+    Route::get('/history-log/summary', [HistoryLogController::class, 'summary']);
+    Route::get('/history-log/user/{userId}', [HistoryLogController::class, 'userLogs']);
 });
 
 // Bidan Dashboard Routes (Protected: role=bidan)
