@@ -211,8 +211,20 @@ class AdminAccountController extends Controller
         $filterRole = $request->query('role');
 
         $query = DB::table('users')
-            ->select('user_id', 'name', 'email', 'role', 'is_active', 'created_at', 'updated_at')
-            ->orderBy('created_at', 'desc');
+            ->select([
+                'users.user_id', 
+                'users.name', 
+                'users.email', 
+                'users.role', 
+                'users.is_active', 
+                'users.created_at', 
+                'users.updated_at',
+                // Subquery untuk mengambil aktivitas terakhir
+                DB::raw('(SELECT activity_label FROM activity_logs WHERE activity_logs.user_id = users.user_id ORDER BY created_at DESC LIMIT 1) as last_activity_label'),
+                DB::raw('(SELECT activity_label FROM activity_logs WHERE activity_logs.user_id = users.user_id ORDER BY created_at DESC LIMIT 1) as last_activity'),
+                DB::raw('(SELECT activity_type FROM activity_logs WHERE activity_logs.user_id = users.user_id ORDER BY created_at DESC LIMIT 1) as last_activity_type')
+            ])
+            ->orderBy('users.created_at', 'desc');
 
         if ($filterRole) {
             $query->where('role', strtolower($filterRole));
@@ -263,6 +275,10 @@ class AdminAccountController extends Controller
                 'user_profile.pekerjaan',
                 'user_profile.golongan_darah',
                 'user_profile.photo',
+                // Subquery untuk mengambil aktivitas terakhir
+                DB::raw('(SELECT activity_label FROM activity_logs WHERE activity_logs.user_id = users.user_id ORDER BY created_at DESC LIMIT 1) as last_activity_label'),
+                DB::raw('(SELECT activity_label FROM activity_logs WHERE activity_logs.user_id = users.user_id ORDER BY created_at DESC LIMIT 1) as last_activity'),
+                DB::raw('(SELECT activity_type FROM activity_logs WHERE activity_logs.user_id = users.user_id ORDER BY created_at DESC LIMIT 1) as last_activity_type')
             ])
             ->where('users.role', 'ibu_hamil')
             ->orderBy('users.created_at', 'desc');
