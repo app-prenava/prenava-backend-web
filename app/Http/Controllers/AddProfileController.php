@@ -456,7 +456,7 @@ class AddProfileController extends Controller
 
         
         if (!empty($profile->photo)) {
-            $profile->photo = Storage::disk('public')->url($profile->photo);
+            $profile->photo = url('storage/' . ltrim($profile->photo, '/'));
         }
 
         return response()->json([
