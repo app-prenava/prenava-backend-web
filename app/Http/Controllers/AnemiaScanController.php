@@ -23,7 +23,7 @@ class AnemiaScanController extends Controller
             ], 422);
         }
 
-        $file = $request->file('file');
+        $file = $request->file('image');
 
         $mlUrl = rtrim(config('services.ml.anemia', 'http://72.61.213.163:9001/'), '/') . '/predict';
 
