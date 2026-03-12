@@ -5,6 +5,18 @@ namespace App\Services;
 use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 
+/**
+ * ActivityLogService
+ * 
+ * Central service for recording user activities throughout the application.
+ * Integrated with the following features and controllers:
+ * - Auth: login, logout, register, change_password (AuthController)
+ * - Profile: update profiles for all user roles (AddProfileController)
+ * - Admin: account activation/deactivation (AdminUserStatusController)
+ * - Diagnostics: depression detection (PrediksiDepresiController) and maternal health/anemia (DeteksiController)
+ * - Recommendations: food (RekomendasiMakananController) and sports/exercise (RecomendationSportController)
+ * - Account Dashboard: provides 'last_activity' labels (AdminAccountController)
+ */
 class ActivityLogService
 {
     /**
