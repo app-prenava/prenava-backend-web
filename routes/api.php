@@ -262,6 +262,9 @@ Route::group(['middleware' => 'auth:api'], function () {
 
     // Depression Face Scan
     Route::post('/depression-scan', [DepressionScanController::class, 'scan']);
+
+    // Anemia Eye Scan
+    Route::post('/anemia-scan', [App\Http\Controllers\AnemiaScanController::class, 'scan']);
 });
 
 

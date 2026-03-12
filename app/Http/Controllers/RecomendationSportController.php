@@ -91,8 +91,8 @@ class RecomendationSportController extends Controller
 
         $mlUrl = rtrim(env('URL_ML_SPORTS'), '/') . '/predict';
 
-        $resp = Http::withOptions(['timeout' => 3])
-            ->retry(2, 100)
+        $resp = Http::withOptions(['timeout' => 15])
+            ->retry(2, 500)
             ->acceptJson()
             ->post($mlUrl, $forward);
 
@@ -270,8 +270,8 @@ class RecomendationSportController extends Controller
             'back_pain'                  => (bool) $d['back_pain'],
         ];
 
-        $resp = Http::timeout(3)
-            ->retry(2, 100)
+        $resp = Http::timeout(15)
+            ->retry(2, 500)
             ->acceptJson()
             ->post(rtrim(env('URL_ML_SPORTS'), '/') . '/predict', $forward);
 
@@ -525,21 +525,21 @@ class RecomendationSportController extends Controller
 
         if ($request->hasFile('picture_1')) {
             $path = $request->file('picture_1')->store($folder, 'public');
-            $payload['picture_1'] = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+            $payload['picture_1'] = '/storage/' . $path;
         } elseif (!empty($d['remove_picture_1'])) {
             $payload['picture_1'] = null;
         }
 
         if ($request->hasFile('picture_2')) {
             $path = $request->file('picture_2')->store($folder, 'public');
-            $payload['picture_2'] = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+            $payload['picture_2'] = '/storage/' . $path;
         } elseif (!empty($d['remove_picture_2'])) {
             $payload['picture_2'] = null;
         }
 
         if ($request->hasFile('picture_3')) {
             $path = $request->file('picture_3')->store($folder, 'public');
-            $payload['picture_3'] = \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+            $payload['picture_3'] = '/storage/' . $path;
         } elseif (!empty($d['remove_picture_3'])) {
             $payload['picture_3'] = null;
         }
