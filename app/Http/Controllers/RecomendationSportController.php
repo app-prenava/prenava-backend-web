@@ -365,6 +365,42 @@ class RecomendationSportController extends Controller
         ], 200);
     }
 
+    // Public endpoint to get all sports (for users)
+    public function getAllSportsPublic(): JsonResponse
+    {
+        $baseUrl = rtrim(config('app.url'), '/');
+
+        $items = DB::table('data_ml_sport')
+            ->select([
+                'activity',
+                'video_link',
+                'long_text',
+                'picture_1',
+                'picture_2',
+                'picture_3',
+            ])
+            ->orderBy('activity')
+            ->get();
+
+        // Enrich picture URLs
+        $items = $items->map(function ($item) use ($baseUrl) {
+            foreach (['picture_1', 'picture_2', 'picture_3'] as $pic) {
+                if ($item->$pic && !str_starts_with($item->$pic, 'http')) {
+                    $item->$pic = $baseUrl . $item->$pic;
+                }
+            }
+            // Add default score for display
+            $item->score = 0.5; // Default neutral score
+            return $item;
+        });
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'List all sports.',
+            'data'    => $items,
+        ], 200);
+    }
+
     public function showSportMeta(Request $request, string $activity): JsonResponse
     {
         [$uid] = AuthToken::assertRoleFresh($request, 'admin');
