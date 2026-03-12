@@ -25,7 +25,7 @@ class DepressionScanController extends Controller
 
         $file = $request->file('image');
 
-        $mlUrl = rtrim(env('URL_ML_DEPRESSION'), '/') . '/predict';
+        $mlUrl = rtrim(config('services.ml.depression'), '/') . '/predict';
 
         try {
             $response = Http::timeout(30)

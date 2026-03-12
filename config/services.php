@@ -41,4 +41,10 @@ return [
         'key' => env('AIRVISUAL_API_KEY'),
     ],
 
+    'ml' => [
+        'sports' => env('URL_ML_SPORTS'),
+        'depression' => env('URL_ML_DEPRESSION'),
+        'anemia' => env('URL_ML_ANEMIA'),
+    ],
+
 ];

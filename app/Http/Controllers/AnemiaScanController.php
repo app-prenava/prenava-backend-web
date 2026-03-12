@@ -23,9 +23,9 @@ class AnemiaScanController extends Controller
             ], 422);
         }
 
-        $file = $request->file('image');
+        $file = $request->file('file');
 
-        $mlUrl = rtrim(env('URL_ML_ANEMIA', 'http://72.61.213.163:9001/'), '/') . '/predict';
+        $mlUrl = rtrim(config('services.ml.anemia', 'http://72.61.213.163:9001/'), '/') . '/predict';
 
         try {
             $response = Http::timeout(30)
