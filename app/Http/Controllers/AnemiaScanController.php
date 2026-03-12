@@ -31,7 +31,7 @@ class AnemiaScanController extends Controller
             $response = Http::timeout(30)
                 ->retry(2, 500)
                 ->attach(
-                    'image',
+                    'file',
                     file_get_contents($file->getRealPath()),
                     $file->getClientOriginalName()
                 )
