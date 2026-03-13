@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\PrediksiDepresi;
-use App\Models\ActivityLog;
-use App\Services\ActivityLogService;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Http;
@@ -78,14 +76,6 @@ class PrediksiDepresiController extends Controller
                 ['hasil_prediksi' => $hasilPrediksi, 'user_id' => $user->id]
             ));
 
-            // Log deteksi depresi
-            ActivityLogService::logFromUser(
-                ActivityLog::TYPE_DETEKSI_DEPRESI,
-                $user,
-                "User {$user->name} melakukan deteksi tingkat depresi.",
-                ['hasil_prediksi' => $hasilPrediksi],
-                $request
-            );
 
             return response()->json([
                 "status" => "success",

@@ -6,6 +6,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
+use App\Models\ActivityLog;
+use App\Services\ActivityLogService;
 
 class AnemiaScanController extends Controller
 {
@@ -46,6 +48,17 @@ class AnemiaScanController extends Controller
             }
 
             $ml = $response->json();
+
+            // Log deteksi anemia (scan foto)
+            if ($user = $request->user()) {
+                ActivityLogService::logFromUser(
+                    ActivityLog::TYPE_DETEKSI_ANEMIA,
+                    $user,
+                    "User {$user->name} melakukan deteksi anemia melalui scan mata/wajah.",
+                    ['prediction' => $ml],
+                    $request
+                );
+            }
 
             return response()->json([
                 'status' => 'success',

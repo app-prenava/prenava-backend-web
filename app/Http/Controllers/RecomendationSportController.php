@@ -324,6 +324,18 @@ class RecomendationSportController extends Controller
             $ml['all_ranked'] = array_map($map, $ml['all_ranked']);
         }
 
+        // Log pengisian assessment rekomendasi gerakan
+        $user = User::find($uid);
+        if ($user) {
+            ActivityLogService::logFromUser(
+                ActivityLog::TYPE_REKOMENDASI_GERAKAN,
+                $user,
+                "User {$user->name} memperbarui data assessment untuk rekomendasi gerakan/olahraga.",
+                ['gestational_age_weeks' => $gestationalAgeWeeks, 'bmi' => $d['bmi']],
+                $request
+            );
+        }
+
         return response()->json([
             'status'         => 'success',
             'message'        => 'Sport recommendation success.',

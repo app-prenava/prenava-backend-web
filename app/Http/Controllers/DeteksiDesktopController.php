@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Models\DeteksiPenyakit;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use App\Models\ActivityLog;
+use App\Services\ActivityLogService;
 
 class DeteksiDesktopController extends Controller
 {
@@ -213,6 +215,15 @@ class DeteksiDesktopController extends Controller
                         'hypertension_prediction' => $prediction['hypertension_prediction'],
                         'maternal_health_prediction' => $prediction['maternal_health_prediction'],
                     ]);
+
+                    // Log deteksi anemia/risiko penyakit (Desktop)
+                    ActivityLogService::logFromUser(
+                        ActivityLog::TYPE_DETEKSI_ANEMIA,
+                        $user,
+                        "User {$user->name} melakukan deteksi risiko penyakit maternal via Desktop.",
+                        ['predictions' => $prediction],
+                        $request
+                    );
 
                     Log::info('Predictions updated successfully', [
                         'deteksi_id' => $deteksi->id,

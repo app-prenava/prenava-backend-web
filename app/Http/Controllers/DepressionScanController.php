@@ -6,6 +6,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
+use App\Models\ActivityLog;
+use App\Services\ActivityLogService;
 
 class DepressionScanController extends Controller
 {
@@ -46,6 +48,17 @@ class DepressionScanController extends Controller
             }
 
             $ml = $response->json();
+
+            // Log deteksi depresi (scan wajah)
+            if ($user = $request->user()) {
+                ActivityLogService::logFromUser(
+                    ActivityLog::TYPE_DETEKSI_DEPRESI,
+                    $user,
+                    "User {$user->name} melakukan deteksi depresi melalui scan wajah.",
+                    ['prediction' => $ml],
+                    $request
+                );
+            }
 
             return response()->json([
                 'status' => 'success',
