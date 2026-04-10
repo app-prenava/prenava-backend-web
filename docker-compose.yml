@@ -13,7 +13,7 @@ services:
     networks:
       - nuri-net
     ports:
-      - "8000:80"
+      - "127.0.0.1:8000:80"
     environment:
       APP_ENV: local
       APP_DEBUG: true
@@ -23,16 +23,16 @@ services:
       DB_CONNECTION: mysql
       DB_HOST: mysql
       DB_PORT: 3306
-      DB_DATABASE: nuri_db
-      DB_USERNAME: root
-      DB_PASSWORD: 
+      DB_DATABASE: ${DB_DATABASE:-nuri_db}
+      DB_USERNAME: ${DB_USERNAME:-nuri}
+      DB_PASSWORD: ${DB_PASSWORD}
 
       CACHE_DRIVER: redis
       SESSION_DRIVER: redis
       REDIS_CLIENT: phpredis
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: null
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
       REDIS_URL: "tcp://redis:6379"
       REDIS_DB: 0
       REDIS_CACHE_DB: 1
@@ -43,24 +43,24 @@ services:
     container_name: nuri-backend-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
-      MYSQL_DATABASE: nuri_db
-      MYSQL_USER: nuri
-      MYSQL_PASSWORD: 
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE:-nuri_db}
+      MYSQL_USER: ${DB_USERNAME:-nuri}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - nuri-net
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"
 
   redis:
     image: redis:7-alpine
     container_name: nuri-backend-redis
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     networks:
       - nuri-net
     volumes:
@@ -72,14 +72,12 @@ services:
     restart: unless-stopped
     environment:
       PMA_HOST: mysql
-      PMA_USER: root
-      PMA_PASSWORD: 
     depends_on:
       - mysql
     networks:
       - nuri-net
     ports:
-      - "8081:80"
+      - "127.0.0.1:8081:80"
 
 volumes:
   mysql_data:
