@@ -65,6 +65,11 @@ Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
 
+    // Forgot Password Flow
+    Route::post('forgot-password/send-otp', [\App\Http\Controllers\ForgotPasswordController::class, 'sendOtp']);
+    Route::post('forgot-password/verify-otp', [\App\Http\Controllers\ForgotPasswordController::class, 'verifyOtp']);
+    Route::post('forgot-password/reset', [\App\Http\Controllers\ForgotPasswordController::class, 'resetPassword']);
+
     Route::middleware('jwt.auth')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::post('refresh', [AuthController::class, 'refresh']);
