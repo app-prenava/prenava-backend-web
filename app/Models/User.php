@@ -24,7 +24,8 @@ class User extends Authenticatable implements JWTSubject
         'password',
         'role',
         'is_active',
-        'token_version'
+        'token_version',
+        'category'
     ];
 
     protected $hidden = [
@@ -200,5 +201,23 @@ class User extends Authenticatable implements JWTSubject
         }
 
         return $subscription->status;
+    }
+
+    // ===== DAILY FEATURES RELATIONSHIPS =====
+
+    /**
+     * Get user streak records
+     */
+    public function streaks(): HasOne
+    {
+        return $this->hasOne(UserStreak::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Get user daily task logs
+     */
+    public function dailyTaskLogs(): HasMany
+    {
+        return $this->hasMany(UserTaskLog::class, 'user_id', 'user_id');
     }
 }
