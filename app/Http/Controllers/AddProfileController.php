@@ -237,24 +237,38 @@ class AddProfileController extends Controller
             $path = $req->file('photo')->store('profiles/ibu', 'public');
         }
 
-        DB::table('user_profile')->insert([
-            'user_id'             => $uid,
-            'tanggal_lahir'       => $req->tanggal_lahir,
-            'usia'                => $req->usia,
-            'alamat'              => $req->alamat,
-            'no_telepon'          => $req->no_telepon,
-            'pendidikan_terakhir' => $req->pendidikan_terakhir,
-            'pekerjaan'           => $req->pekerjaan,
-            'golongan_darah'      => $req->golongan_darah,
-            'status_kandungan'    => $req->status_kandungan,
-            'provinsi'            => $req->provinsi,
-            'kota'                => $req->kota,
-            'kecamatan'           => $req->kecamatan,
-            'pendapatan_keluarga' => $req->pendapatan_keluarga,
-            'photo'               => $path,
-            'created_at'          => now(),
-            'updated_at'          => now(),
-        ]);
+        try {
+            $insertData = [
+                'user_id'             => $uid,
+                'tanggal_lahir'       => $req->tanggal_lahir,
+                'usia'                => $req->usia,
+                'alamat'              => $req->alamat,
+                'no_telepon'          => $req->no_telepon,
+                'pendidikan_terakhir' => $req->pendidikan_terakhir,
+                'pekerjaan'           => $req->pekerjaan,
+                'golongan_darah'      => $req->golongan_darah,
+                'status_kandungan'    => $req->status_kandungan,
+                'provinsi'            => $req->provinsi,
+                'kota'                => $req->kota,
+                'kecamatan'           => $req->kecamatan,
+                'pendapatan_keluarga' => $req->pendapatan_keluarga,
+                'photo'               => $path ?? '',
+                'created_at'          => now(),
+                'updated_at'          => now(),
+            ];
+
+            DB::table('user_profile')->insert($insertData);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('createIbuHamil failed', [
+                'uid' => $uid,
+                'error' => $e->getMessage(),
+                'data' => $req->except('photo'),
+            ]);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Gagal membuat profil: ' . $e->getMessage(),
+            ], 500);
+        }
         
         $photoUrl = $path ? asset('storage/' . $path) : null;
 
