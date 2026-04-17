@@ -1,0 +1,5 @@
+# k6 Test Data and Results
+.env.test
+*.json
+*.html
+k6-results/

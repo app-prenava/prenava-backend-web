@@ -101,7 +101,7 @@ return [
     |
     */
 
-    'ttl' => env('JWT_TTL', null),
+    'ttl' => env('JWT_TTL', 60), // 60 minutes (1 hour) - never expiring tokens are a security risk
 
     /*
     |--------------------------------------------------------------------------

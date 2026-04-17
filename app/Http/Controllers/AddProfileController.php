@@ -208,13 +208,18 @@ class AddProfileController extends Controller
     protected function createIbuHamil(Request $req, int $uid): JsonResponse
     {
         $v = Validator::make($req->all(), [
-            'tanggal_lahir'       => ['required','date'],
+            'tanggal_lahir'       => ['nullable','date'],
             'usia'                => ['nullable','integer'],
             'alamat'              => ['nullable','string','max:500'],
             'no_telepon'          => ['nullable','string','max:32'],
             'pendidikan_terakhir' => ['nullable','string','max:255'],
             'pekerjaan'           => ['nullable','string','max:255'],
             'golongan_darah'      => ['nullable','string','max:3'],
+            'status_kandungan'    => ['nullable','string','max:255'],
+            'provinsi'            => ['nullable','string','max:255'],
+            'kota'                => ['nullable','string','max:255'],
+            'kecamatan'           => ['nullable','string','max:255'],
+            'pendapatan_keluarga' => ['nullable','string','max:255'],
             'photo'               => ['sometimes','file','image','mimes:jpg,jpeg,png,webp','max:500'],
         ], [
             'photo.image' => 'File harus berupa foto',
@@ -241,6 +246,11 @@ class AddProfileController extends Controller
             'pendidikan_terakhir' => $req->pendidikan_terakhir,
             'pekerjaan'           => $req->pekerjaan,
             'golongan_darah'      => $req->golongan_darah,
+            'status_kandungan'    => $req->status_kandungan,
+            'provinsi'            => $req->provinsi,
+            'kota'                => $req->kota,
+            'kecamatan'           => $req->kecamatan,
+            'pendapatan_keluarga' => $req->pendapatan_keluarga,
             'photo'               => $path,
             'created_at'          => now(),
             'updated_at'          => now(),
@@ -259,6 +269,11 @@ class AddProfileController extends Controller
                 'pendidikan_terakhir' => $req->pendidikan_terakhir,
                 'pekerjaan'           => $req->pekerjaan,
                 'golongan_darah'      => $req->golongan_darah,
+                'status_kandungan'    => $req->status_kandungan,
+                'provinsi'            => $req->provinsi,
+                'kota'                => $req->kota,
+                'kecamatan'           => $req->kecamatan,
+                'pendapatan_keluarga' => $req->pendapatan_keluarga,
                 'photo'               => $photoUrl,
             ],
         ], 201);
@@ -377,6 +392,11 @@ class AddProfileController extends Controller
             'pendidikan_terakhir' => ['nullable','string','max:255'],
             'pekerjaan'           => ['nullable','string','max:255'],
             'golongan_darah'      => ['nullable','string','max:3'],
+            'status_kandungan'    => ['nullable','string','max:255'],
+            'provinsi'            => ['nullable','string','max:255'],
+            'kota'                => ['nullable','string','max:255'],
+            'kecamatan'           => ['nullable','string','max:255'],
+            'pendapatan_keluarga' => ['nullable','string','max:255'],
             'photo'               => ['sometimes','file','image','mimes:jpg,jpeg,png,webp','max:500'],
         ], [
             'photo.image' => 'File harus berupa foto',
@@ -390,7 +410,8 @@ class AddProfileController extends Controller
 
         $data = $this->onlyNotNull($req->only([
             'tanggal_lahir','usia','alamat','no_telepon',
-            'pendidikan_terakhir','pekerjaan','golongan_darah'
+            'pendidikan_terakhir','pekerjaan','golongan_darah',
+            'status_kandungan','provinsi','kota','kecamatan','pendapatan_keluarga'
         ]));
 
         if ($req->hasFile('photo')) {
