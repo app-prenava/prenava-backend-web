@@ -108,6 +108,7 @@ Route::get('/recomendation/sports/get', [
     'getSportRecommendation'
 ]);
 Route::get('/recomendation/sports/all', [RecomendationSportController::class, 'getAllSportsPublic']);
+Route::get('/recomendation/sports/assessment', [RecomendationSportController::class, 'getExistingAssessment']);
 
 Route::prefix('recomendation/sport')->group(function () {
     Route::get('/', [RecomendationSportController::class, 'indexSportMeta']);

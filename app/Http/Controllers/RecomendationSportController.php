@@ -625,4 +625,56 @@ class RecomendationSportController extends Controller
             'activity'=> $activity,
         ], 200);
     }
+
+    public function getExistingAssessment(): JsonResponse
+    {
+        [$uid] = AuthToken::assertRoleFresh(request(), 'ibu_hamil');
+
+        $preg = DB::table('pregnancies')
+            ->select('pregnancy_id')
+            ->where('user_id', $uid)
+            ->where('status', 'ongoing')
+            ->orderByDesc('pregnancy_id')
+            ->first();
+
+        if (! $preg) {
+            return response()->json([
+                'status'         => 'success',
+                'has_assessment' => false,
+                'assessment'     => null,
+            ]);
+        }
+
+        $a = DB::table('pregnancy_assessments')
+            ->where('pregnancy_id', $preg->pregnancy_id)
+            ->first();
+
+        if (! $a) {
+            return response()->json([
+                'status'         => 'success',
+                'has_assessment' => false,
+                'assessment'     => null,
+            ]);
+        }
+
+        return response()->json([
+            'status'         => 'success',
+            'has_assessment' => true,
+            'assessment'     => [
+                'bmi'                          => (float) $a->bmi,
+                'hypertension'                 => (bool) $a->hypertension,
+                'is_diabetes'                  => (bool) $a->is_diabetes,
+                'gestational_diabetes'         => (bool) $a->gestational_diabetes,
+                'is_fever'                     => (bool) $a->is_fever,
+                'is_high_heart_rate'           => (bool) $a->is_high_heart_rate,
+                'previous_complications'       => (bool) $a->previous_complications,
+                'mental_health_issue'          => (bool) $a->mental_health_issue,
+                'back_pain'                    => (bool) $a->back_pain,
+                'low_impact_pref'              => (bool) $a->low_impact_pref,
+                'water_access'                 => (bool) $a->water_access,
+                'placenta_position_restriction'=> (bool) $a->placenta_previa,
+                'updated_at'                   => $a->updated_at,
+            ],
+        ]);
+    }
 }
