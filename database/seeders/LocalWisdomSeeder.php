@@ -10,80 +10,111 @@ class LocalWisdomSeeder extends Seeder
     public function run(): void
     {
         $myths = [
+            // ── Nasional ──────────────────────────────────────────────────
             [
                 'myth' => 'Duduk di Tengah Pintu',
-                'reason' => 'Posisi ambang pintu menciptakan aliran udara kencang dari dua sisi. Ini berisiko menyebabkan masuk angin pada ibu hamil yang lebih rentan terhadap perubahan suhu.',
-                'region' => 'Umum / Nasional',
-            ],
-            [
-                'myth' => 'Melilitkan Handuk di Leher',
-                'reason' => 'Handuk di leher mencegah ibu merasa gerah dan sesak napas. Mitos ini juga dikaitkan sebagai pengingat agar ibu tidak membungkuk berlebihan saat bekerja.',
-                'region' => 'Jawa / Sunda',
-            ],
-            [
-                'myth' => 'Membawa Gunting atau Peniti',
-                'reason' => 'Berfungsi sebagai alat perlindungan mental (plasebo) agar ibu merasa lebih aman dan tenang saat bepergian sendirian — mengurangi kecemasan yang buruk bagi janin.',
-                'region' => 'Melayu / Sumatera',
+                'reason' => 'Posisi ambang pintu menciptakan aliran udara kencang (angin duduk). Ibu hamil lebih rentan masuk angin yang bisa mengganggu sirkulasi oksigen ke janin.',
+                'region' => 'Nasional',
             ],
             [
                 'myth' => 'Makan Nanas Muda',
-                'reason' => 'Nanas mengandung enzim bromelain yang terbukti secara ilmiah dapat memicu kontraksi rahim dan meningkatkan risiko keguguran, terutama pada trimester pertama.',
-                'region' => 'Umum / Nasional',
-            ],
-            [
-                'myth' => 'Suami Dilarang Membunuh Binatang',
-                'reason' => 'Bertujuan menjaga empati dan ketenangan batin suami. Ibu yang merasa aman dan dilindungi akan memiliki hormon stres yang lebih rendah, berdampak positif pada janin.',
-                'region' => 'Jawa / Bali',
-            ],
-            [
-                'myth' => 'Makan di Piring Besar',
-                'reason' => 'Secara psikologis, piring besar menciptakan ilusi porsi yang lebih sedikit sehingga ibu tidak makan berlebihan. Berat badan berlebih mempersulit proses persalinan.',
-                'region' => 'Bugis / Makassar',
-            ],
-            [
-                'myth' => 'Keluar Rumah Saat Maghrib',
-                'reason' => 'Waktu maghrib identik dengan pencahayaan yang minim (remang-remang). Risiko ibu hamil terjatuh, tersandung, atau mengalami kecelakaan kecil jauh lebih tinggi.',
-                'region' => 'Hampir Seluruh Daerah',
-            ],
-            [
-                'myth' => 'Mencela Fisik Orang Lain',
-                'reason' => 'Mengajarkan ibu menjaga lisan dan berpikiran positif. Pikiran negatif memicu hormon kortisol yang mengganggu perkembangan janin dan kesehatan mental ibu.',
-                'region' => 'Jawa / Kalimantan',
-            ],
-            [
-                'myth' => 'Makan Pisang dari Ujung Bawah',
-                'reason' => 'Larangan ini mengajarkan keteraturan dan etika saat makan. Makan dengan teratur dan tidak terburu-buru penting untuk pencernaan ibu hamil yang lebih sensitif.',
-                'region' => 'Sumatera / Melayu',
-            ],
-            [
-                'myth' => 'Tidur Siang Terlalu Lama',
-                'reason' => 'Tidur siang berlebihan mengganggu ritme sirkadian. Ibu yang aktif bergerak ringan di siang hari memiliki kualitas tidur malam yang lebih baik dan tidak mudah lemas.',
-                'region' => 'Sunda / Jawa',
-            ],
-            [
-                'myth' => 'Suami Renovasi Rumah Saat Hamil',
-                'reason' => 'Debu konstruksi mengandung partikel berbahaya, dan bau cat mengandung senyawa VOC (Volatile Organic Compounds) yang terbukti berbahaya bagi perkembangan janin.',
-                'region' => 'Jawa / Bali',
-            ],
-            [
-                'myth' => 'Membawa Bangle atau Panglai',
-                'reason' => 'Aroma rimpang bangle berfungsi sebagai aromaterapi alami. Penelitian menunjukkan aromaterapi tertentu efektif menenangkan sistem saraf dan mengurangi mual pada ibu hamil.',
-                'region' => 'Sunda',
-            ],
-            [
-                'myth' => 'Menjahit atau Menambal',
-                'reason' => 'Menjahit dalam waktu lama membuat ibu membungkuk dan menatap fokus. Ini menyebabkan nyeri punggung, mata cepat lelah, dan postur buruk yang berbahaya saat hamil.',
-                'region' => 'Betawi / Jawa',
+                'reason' => 'Nanas mengandung bromelain tinggi yang bisa melunakkan leher rahim dan memicu kontraksi dini atau keguguran pada trimester awal.',
+                'region' => 'Nasional',
             ],
             [
                 'myth' => 'Mandi Terlalu Malam',
-                'reason' => 'Suhu malam yang dingin berisiko menyebabkan kram otot dan hipotermia ringan. Sistem imun ibu hamil lebih rentan, sehingga paparan suhu ekstrem perlu dihindari.',
-                'region' => 'Umum / Nasional',
+                'reason' => 'Suhu malam yang dingin meningkatkan risiko kram otot dan gangguan pernapasan. Tubuh ibu hamil membutuhkan suhu yang stabil untuk metabolisme janin.',
+                'region' => 'Nasional',
+            ],
+
+            // ── Jawa ──────────────────────────────────────────────────────
+            [
+                'myth' => 'Melilitkan Handuk di Leher',
+                'reason' => 'Handuk di leher membuat ibu merasa gerah dan sesak. Ini pengingat agar ibu menjaga postur tubuh tetap tegak dan tidak membungkuk berlebihan.',
+                'region' => 'Jawa',
+            ],
+            [
+                'myth' => 'Suami Dilarang Membunuh Binatang',
+                'reason' => 'Menjaga empati dan ketenangan batin. Jika ibu melihat hal sadis, hormon stres (kortisol) meningkat yang buruk bagi saraf janin.',
+                'region' => 'Jawa',
+            ],
+            [
+                'myth' => 'Menjahit atau Menambal',
+                'reason' => 'Menjahit lama membuat mata lelah dan punggung pegal karena posisi statis. Ibu hamil butuh relaksasi otot punggung secara berkala.',
+                'region' => 'Jawa',
+            ],
+            [
+                'myth' => 'Tidur Siang Terlalu Lama',
+                'reason' => 'Tidur siang berlebihan bikin badan lemas dan sulit tidur malam. Kualitas tidur malam yang baik sangat penting untuk regenerasi sel janin.',
+                'region' => 'Jawa',
+            ],
+
+            // ── Sunda ─────────────────────────────────────────────────────
+            [
+                'myth' => 'Membawa Bangle / Panglai',
+                'reason' => 'Aroma rimpang Bangle berfungsi sebagai aromaterapi alami yang efektif mengurangi rasa mual (morning sickness) dan menenangkan sistem saraf.',
+                'region' => 'Sunda',
+            ],
+            [
+                'myth' => 'Makan di Piring Besar',
+                'reason' => 'Psikologi piring besar membuat ibu merasa porsinya sedikit sehingga tidak makan berlebihan. Obesitas saat hamil meningkatkan risiko preeklampsia.',
+                'region' => 'Sunda',
+            ],
+            [
+                'myth' => 'Mengikat Rambut Terlalu Kencang',
+                'reason' => 'Perubahan hormon saat hamil membuat rambut lebih rapuh. Mengikat terlalu kencang memicu sakit kepala dan kerontokan rambut yang parah.',
+                'region' => 'Sunda',
+            ],
+
+            // ── Bali ──────────────────────────────────────────────────────
+            [
+                'myth' => 'Makan Makanan yang Terlalu Pedas',
+                'reason' => 'Lambung ibu hamil lebih sensitif. Makanan sangat pedas memicu asam lambung naik (heartburn) yang sangat tidak nyaman bagi ibu.',
+                'region' => 'Bali',
+            ],
+            [
+                'myth' => 'Suami Merenovasi Rumah',
+                'reason' => 'Menghindarkan ibu dari paparan debu, bau cat (VOC), dan kebisingan yang bisa memicu stres dan gangguan pernapasan pada janin.',
+                'region' => 'Bali',
+            ],
+            [
+                'myth' => 'Keluar Saat Matahari Terbenam',
+                'reason' => 'Waktu pergantian cahaya membuat penglihatan kurang fokus. Risiko terjatuh atau tersandung lebih tinggi bagi ibu hamil yang keseimbangannya berubah.',
+                'region' => 'Bali',
+            ],
+
+            // ── Sumatera / Melayu ──────────────────────────────────────────
+            [
+                'myth' => 'Membawa Gunting atau Peniti',
+                'reason' => 'Berfungsi sebagai perlindungan mental (efek plasebo). Rasa aman dan berani membuat ibu lebih rileks saat harus keluar rumah.',
+                'region' => 'Sumatera',
+            ],
+            [
+                'myth' => 'Makan Pisang Sungsang',
+                'reason' => 'Mengajarkan etika dan keteraturan saat makan. Pola makan yang teratur membantu metabolisme tubuh ibu hamil tetap stabil.',
+                'region' => 'Sumatera',
             ],
             [
                 'myth' => 'Membatin Keburukan Orang Lain',
-                'reason' => 'Pikiran negatif berkepanjangan meningkatkan hormon kortisol (hormon stres). Kadar kortisol tinggi pada ibu hamil berdampak langsung pada perkembangan otak janin.',
-                'region' => 'Jawa / Minang',
+                'reason' => 'Pikiran negatif terus-menerus memicu stres psikis. Kestabilan emosi ibu sangat berpengaruh pada temperamen bayi setelah lahir nanti.',
+                'region' => 'Sumatera',
+            ],
+
+            // ── Bugis / Makassar ──────────────────────────────────────────
+            [
+                'myth' => 'Minum Sambil Berdiri',
+                'reason' => 'Minum sambil duduk membantu ginjal menyaring air lebih efektif. Beban ginjal ibu hamil lebih berat karena menyaring limbah dari janin juga.',
+                'region' => 'Bugis',
+            ],
+            [
+                'myth' => 'Mencela Fisik Orang Lain',
+                'reason' => 'Mengajarkan ibu menjaga lisan dan pikiran positif. Afirmasi positif setiap hari membantu kesehatan mental ibu tetap terjaga.',
+                'region' => 'Bugis',
+            ],
+            [
+                'myth' => 'Tidur Menghadap Kanan Terus',
+                'reason' => 'Disarankan bergantian posisi. Namun posisi miring kiri lebih baik untuk aliran nutrisi dari plasenta ke janin.',
+                'region' => 'Bugis',
             ],
         ];
 

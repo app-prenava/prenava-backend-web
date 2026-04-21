@@ -10,7 +10,7 @@ class DailyTaskSeeder extends Seeder
     public function run(): void
     {
         $tasks = [
-            // ── Manual tasks (user-initiated) ──────────────────────────────
+            // ── Manual Tasks ──────────────────────────────────────────────
             [
                 'title'           => 'Minum 8 Gelas Air',
                 'description'     => 'Pastikan tubuh tetap terhidrasi dengan baik seharian.',
@@ -32,89 +32,60 @@ class DailyTaskSeeder extends Seeder
                 'points'          => 20,
                 'target_category' => null,
             ],
-            [
-                'title'           => 'Membaca Artikel Edukasi',
-                'description'     => 'Baca minimal 1 artikel mengenai persalinan atau kehamilan.',
-                'task_type'       => 'learning',
-                'points'          => 5,
-                'target_category' => null,
-            ],
-            [
-                'title'           => 'Senam Kegel',
-                'description'     => 'Lakukan senam kegel untuk memperkuat otot panggul.',
-                'task_type'       => 'exercise',
-                'points'          => 15,
-                'target_category' => 'ibu_hamil',
-            ],
 
-            // ── Auto-tracked: Feature Usage ────────────────────────────────
-            // Dicatat otomatis ketika user membuka fitur terkait di aplikasi.
+            // ── Auto-tracked: Feature Usage (Misi Fitur App) ──────────────
             [
-                'title'           => 'Cek Rekomendasi Olahraga',
-                'description'     => 'Kamu membuka fitur Rekomendasi Olahraga hari ini.',
-                'task_type'       => 'feature_olahraga',
-                'points'          => 5,
-                'target_category' => null,
-            ],
-            [
-                'title'           => 'Pantau Hidrasi Harian',
-                'description'     => 'Kamu membuka fitur Rekomendasi Hidrasi hari ini.',
-                'task_type'       => 'feature_hidrasi',
-                'points'          => 5,
-                'target_category' => null,
-            ],
-            [
-                'title'           => 'Baca Tips & Gizi',
-                'description'     => 'Kamu mengakses Tips & Gizi hari ini.',
-                'task_type'       => 'feature_tips',
-                'points'          => 5,
-                'target_category' => null,
-            ],
-            [
-                'title'           => 'Cek Kalkulator HPL',
-                'description'     => 'Kamu mengecek Kalkulator HPL hari ini.',
-                'task_type'       => 'feature_kalkulator_hpl',
-                'points'          => 5,
-                'target_category' => null,
-            ],
-            [
-                'title'           => 'Prediksi Anemia',
-                'description'     => 'Kamu menggunakan fitur Prediksi Anemia hari ini.',
+                'title'           => 'Cek Prediksi Anemia',
+                'description'     => 'Gunakan fitur deteksi anemia untuk pantau kesehatan darah.',
                 'task_type'       => 'feature_anemia',
                 'points'          => 10,
                 'target_category' => null,
             ],
             [
-                'title'           => 'Prediksi Depresi',
-                'description'     => 'Kamu menggunakan fitur Prediksi Depresi hari ini.',
+                'title'           => 'Cek Prediksi Depresi',
+                'description'     => 'Pantau kesehatan mental Bunda dengan fitur deteksi depresi.',
                 'task_type'       => 'feature_depresi',
                 'points'          => 10,
                 'target_category' => null,
             ],
             [
-                'title'           => 'Lihat Komunitas',
-                'description'     => 'Kamu berinteraksi di Komunitas hari ini.',
+                'title'           => 'Rekomendasi Olahraga',
+                'description'     => 'Lihat gerakan olahraga yang aman untuk ibu hamil hari ini.',
+                'task_type'       => 'feature_olahraga',
+                'points'          => 5,
+                'target_category' => null,
+            ],
+            [
+                'title'           => 'Interaksi di Komunitas',
+                'description'     => 'Buka menu komunitas untuk berbagi pengalaman dengan ibu lain.',
                 'task_type'       => 'feature_komunitas',
                 'points'          => 5,
                 'target_category' => null,
             ],
             [
-                'title'           => 'Cek Kunjungan Bidan',
-                'description'     => 'Kamu mengakses catatan Kunjungan Bidan hari ini.',
-                'task_type'       => 'feature_kunjungan',
+                'title'           => 'Pantau Kalkulator HPL',
+                'description'     => 'Cek perkembangan janin dan estimasi kelahiran Bunda.',
+                'task_type'       => 'feature_kalkulator_hpl',
                 'points'          => 5,
                 'target_category' => null,
             ],
             [
-                'title'           => 'Buat Janji Bidan',
-                'description'     => 'Kamu menggunakan fitur Janji Temu Bidan hari ini.',
-                'task_type'       => 'feature_appointment',
-                'points'          => 10,
+                'title'           => 'Baca Tips & Gizi',
+                'description'     => 'Dapatkan info gizi harian Bunda di menu Tips.',
+                'task_type'       => 'feature_tips',
+                'points'          => 5,
                 'target_category' => null,
             ],
             [
-                'title'           => 'Baca Kearifan Lokal',
-                'description'     => 'Kamu membaca Kearifan Lokal (mitos kehamilan) hari ini.',
+                'title'           => 'Cek Kualitas Udara',
+                'description'     => 'Pastikan lingkungan Bunda sehat dengan cek kualitas udara.',
+                'task_type'       => 'feature_udara',
+                'points'          => 5,
+                'target_category' => null,
+            ],
+            [
+                'title'           => 'Eksplor Kearifan Lokal',
+                'description'     => 'Pahami mitos-mitos kehamilan dari berbagai daerah.',
                 'task_type'       => 'feature_local_wisdom',
                 'points'          => 5,
                 'target_category' => null,
@@ -122,7 +93,7 @@ class DailyTaskSeeder extends Seeder
         ];
 
         foreach ($tasks as $task) {
-            DailyTask::firstOrCreate(['task_type' => $task['task_type']], $task);
+            DailyTask::updateOrCreate(['task_type' => $task['task_type']], $task);
         }
     }
 }
