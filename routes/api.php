@@ -37,6 +37,7 @@ use App\Http\Controllers\PregnancyTipController;
 use App\Http\Controllers\CatatanIbuController;
 use App\Http\Controllers\HistoryLogController;
 use App\Http\Controllers\DailyFeatureController;
+use App\Http\Controllers\LocalWisdomController;
 
 // Bidan Subscription Controllers
 use App\Http\Controllers\SubscriptionController;
@@ -370,5 +371,14 @@ Route::prefix('user')->middleware(['auth:api'])->group(function () {
     Route::put('/category', [DailyFeatureController::class, 'updateCategory']);
     Route::get('/daily-progress', [DailyFeatureController::class, 'getProgress']);
     Route::post('/daily-task/complete', [DailyFeatureController::class, 'completeTask']);
+    // Auto-track feature access (called on navigation)
+    Route::post('/feature-track', [DailyFeatureController::class, 'trackFeature']);
+    // Analytics for Tugas Akhir research
+    Route::get('/feature-analytics', [DailyFeatureController::class, 'featureAnalytics']);
+
+    // Local Wisdom (Mitos Kehamilan)
+    Route::get('/local-wisdom', [LocalWisdomController::class, 'index']);
+    Route::post('/local-wisdom/toggle', [LocalWisdomController::class, 'toggle']);
+    Route::get('/local-wisdom/analytics', [LocalWisdomController::class, 'analytics']);
 });
 
