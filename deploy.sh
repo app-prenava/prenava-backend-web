@@ -16,6 +16,12 @@ docker compose -f docker-compose.yml exec -T app php artisan config:cache
 docker compose -f docker-compose.yml exec -T app php artisan route:cache
 docker compose -f docker-compose.yml exec -T app php artisan view:cache
 docker compose -f docker-compose.yml exec -T app php artisan migrate --force
+
+# Seeders for research data (Tugas Akhir)
+echo "Seeding research data..."
+docker compose -f docker-compose.yml exec -T app php artisan db:seed --class=LocalWisdomSeeder --force
+docker compose -f docker-compose.yml exec -T app php artisan db:seed --class=DailyTaskSeeder --force
+
 docker compose -f docker-compose.yml exec -T app php artisan storage:link
 
 echo "Deployment finished!"
