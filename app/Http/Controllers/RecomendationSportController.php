@@ -124,8 +124,8 @@ class RecomendationSportController extends Controller
             $m = $meta[$item['activity']] ?? null;
 
             return array_merge($item, [
-                'video_link' => $m->video_link ?? 'data not found',
-                'long_text'  => $m->long_text ?? 'data not found',
+                'video_link' => $m?->video_link ?? 'data not found',
+                'long_text'  => $m?->long_text ?? 'data not found',
                 'picture_1'  => $m && $m->picture_1 ? $baseUrl.$m->picture_1 : 'data not found',
                 'picture_2'  => $m && $m->picture_2 ? $baseUrl.$m->picture_2 : 'data not found',
                 'picture_3'  => $m && $m->picture_3 ? $baseUrl.$m->picture_3 : 'data not found',
@@ -310,11 +310,11 @@ class RecomendationSportController extends Controller
             }
 
             return array_merge($item, [
-                'video_link' => $m->video_link ?? $fallback,
-                'long_text'  => $m->long_text  ?? $fallback,
-                'picture_1'  => $m->picture_1  ?? $fallback,
-                'picture_2'  => $m->picture_2  ?? $fallback,
-                'picture_3'  => $m->picture_3  ?? $fallback,
+                'video_link' => $m?->video_link ?? $fallback,
+                'long_text'  => $m?->long_text  ?? $fallback,
+                'picture_1'  => $m?->picture_1  ?? $fallback,
+                'picture_2'  => $m?->picture_2  ?? $fallback,
+                'picture_3'  => $m?->picture_3  ?? $fallback,
             ]);
         };
 
