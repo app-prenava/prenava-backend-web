@@ -11,7 +11,7 @@ class HealthHistoryController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        $history = HealthScanHistory::where('user_id', $user->id)
+        $history = HealthScanHistory::where('user_id', $user->user_id ?? $user->id)
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -24,7 +24,7 @@ class HealthHistoryController extends Controller
     public function destroy(Request $request, $id): JsonResponse
     {
         $user = $request->user();
-        $history = HealthScanHistory::where('user_id', $user->id)->find($id);
+        $history = HealthScanHistory::where('user_id', $user->user_id ?? $user->id)->find($id);
 
         if (!$history) {
             return response()->json([
