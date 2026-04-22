@@ -51,6 +51,13 @@ class AnemiaScanController extends Controller
 
             // Log deteksi anemia (scan foto)
             if ($user = $request->user()) {
+                // Save to History table
+                \App\Models\HealthScanHistory::create([
+                    'user_id' => $user->id,
+                    'type'    => 'anemia',
+                    'result'  => $ml,
+                ]);
+
                 ActivityLogService::logFromUser(
                     ActivityLog::TYPE_DETEKSI_ANEMIA,
                     $user,

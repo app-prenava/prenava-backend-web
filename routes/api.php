@@ -24,6 +24,7 @@ use App\Http\Controllers\AdminAccountController;
 use App\Http\Controllers\AdminUserStatusController;
 use App\Http\Controllers\RecomendationSportController;
 use App\Http\Controllers\PregnancyController;
+use App\Http\Controllers\HealthHistoryController;
 use App\Http\Controllers\BannerController;
 use App\Http\Controllers\ShopController;
 use App\Http\Controllers\ThreadsController;
@@ -116,6 +117,11 @@ Route::prefix('recomendation/sport')->group(function () {
     Route::post('/', [RecomendationSportController::class, 'storeSportMeta']);
     Route::put('/{activity}', [RecomendationSportController::class, 'updateSportMeta']);
     Route::delete('/{activity}', [RecomendationSportController::class, 'deleteSportMeta']);
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/health/history', [HealthHistoryController::class, 'index']);
+    Route::delete('/health/history/{id}', [HealthHistoryController::class, 'destroy']);
 });
 
 Route::post('/admin/users/{userId}/deactivate', [AdminUserStatusController::class, 'deactivate']);
