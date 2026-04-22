@@ -123,8 +123,21 @@ class RecomendationSportController extends Controller
 
         $baseUrl = rtrim(env('APP_URL'), '/');
 
-        $enrich = function ($item) use ($meta, $baseUrl) {
-            $activityKey = strtolower(str_replace(['_', '-'], ' ', $item['activity'] ?? ''));
+        $mapping = [
+            'prenatal_yoga'      => 'Yoga Hamil',
+            'pelvic_floor'       => 'Senam Kegel',
+            'stationary_cycling' => 'Sepeda Statis',
+            'pilates'            => 'Pilates Hamil',
+            'walking'            => 'Jalan Santai',
+            'swimming'           => 'Berenang',
+        ];
+
+        $enrich = function ($item) use ($meta, $baseUrl, $mapping) {
+            $rawActivity = $item['activity'] ?? '';
+            // Try to map if technical slug is returned
+            $mappedActivity = $mapping[strtolower($rawActivity)] ?? $rawActivity;
+            
+            $activityKey = strtolower(str_replace(['_', '-'], ' ', $mappedActivity));
             $m = $meta[$activityKey] ?? null;
 
             return array_merge($item, [
@@ -306,8 +319,20 @@ class RecomendationSportController extends Controller
         $appUrl = rtrim(config('app.url'), '/');
         $fallback = 'data not found';
 
-        $map = function ($item) use ($meta, $fallback, $appUrl) {
-            $activityKey = strtolower(str_replace(['_', '-'], ' ', $item['activity'] ?? ''));
+        $mapping = [
+            'prenatal_yoga'      => 'Yoga Hamil',
+            'pelvic_floor'       => 'Senam Kegel',
+            'stationary_cycling' => 'Sepeda Statis',
+            'pilates'            => 'Pilates Hamil',
+            'walking'            => 'Jalan Santai',
+            'swimming'           => 'Berenang',
+        ];
+
+        $map = function ($item) use ($meta, $fallback, $appUrl, $mapping) {
+            $rawActivity = $item['activity'] ?? '';
+            $mappedActivity = $mapping[strtolower($rawActivity)] ?? $rawActivity;
+
+            $activityKey = strtolower(str_replace(['_', '-'], ' ', $mappedActivity));
             $m = $meta[$activityKey] ?? null;
 
             foreach (['picture_1','picture_2','picture_3'] as $p) {
