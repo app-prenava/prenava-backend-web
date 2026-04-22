@@ -114,14 +114,18 @@ class RecomendationSportController extends Controller
             ->all();
 
         $meta = DB::table('data_ml_sport')
-            ->whereIn('activity', $activities)
             ->get()
-            ->keyBy('activity');
+            ->mapWithKeys(function ($item) {
+                // Normalize key: lowercase and replace underscore/dash with space
+                $key = strtolower(str_replace(['_', '-'], ' ', $item->activity));
+                return [$key => $item];
+            });
 
         $baseUrl = rtrim(env('APP_URL'), '/');
 
         $enrich = function ($item) use ($meta, $baseUrl) {
-            $m = $meta[$item['activity']] ?? null;
+            $activityKey = strtolower(str_replace(['_', '-'], ' ', $item['activity'] ?? ''));
+            $m = $meta[$activityKey] ?? null;
 
             return array_merge($item, [
                 'video_link' => $m?->video_link,
@@ -293,19 +297,25 @@ class RecomendationSportController extends Controller
             ->values();
 
         $meta = DB::table('data_ml_sport')
-            ->whereIn('activity', $activities)
             ->get()
-            ->keyBy('activity');
+            ->mapWithKeys(function ($item) {
+                $key = strtolower(str_replace(['_', '-'], ' ', $item->activity));
+                return [$key => $item];
+            });
 
         $appUrl = rtrim(config('app.url'), '/');
         $fallback = 'data not found';
 
         $map = function ($item) use ($meta, $fallback, $appUrl) {
-            $m = $meta[$item['activity']] ?? null;
+            $activityKey = strtolower(str_replace(['_', '-'], ' ', $item['activity'] ?? ''));
+            $m = $meta[$activityKey] ?? null;
 
             foreach (['picture_1','picture_2','picture_3'] as $p) {
                 if ($m && $m->$p) {
-                    $m->$p = $appUrl . $m->$p;
+                    // Avoid double prefixing if it already starts with http
+                    if (!str_starts_with($m->$p, 'http')) {
+                        $m->$p = $appUrl . $m->$p;
+                    }
                 }
             }
 
