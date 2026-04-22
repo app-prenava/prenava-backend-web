@@ -51,12 +51,17 @@ class DepressionScanController extends Controller
 
             // Log deteksi depresi (scan wajah)
             if ($user = $request->user()) {
-                // Save to History table
-                \App\Models\HealthScanHistory::create([
-                    'user_id' => $user->id,
-                    'type'    => 'depression',
-                    'result'  => $ml,
-                ]);
+                try {
+                    // Save to History table
+                    \App\Models\HealthScanHistory::create([
+                        'user_id' => $user->user_id ?? $user->id,
+                        'type'    => 'depression',
+                        'result'  => $ml,
+                    ]);
+                } catch (\Exception $e) {
+                    // Fail silently for history logging
+                    \Illuminate\Support\Facades\Log::error("Failed to save depression history: " . $e->getMessage());
+                }
 
                 ActivityLogService::logFromUser(
                     ActivityLog::TYPE_DETEKSI_DEPRESI,
