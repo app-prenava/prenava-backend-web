@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('health_scan_histories', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('user_id')->constrained('users', 'user_id')->onDelete('cascade');
             $table->enum('type', ['anemia', 'depression']);
             $table->json('result');
             $table->string('image_path')->nullable();
