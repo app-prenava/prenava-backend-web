@@ -89,7 +89,7 @@ class RecomendationSportController extends Controller
             'back_pain'       => (bool) $a->back_pain,
         ];
 
-        $mlUrl = rtrim(env('URL_ML_SPORTS'), '/') . '/predict';
+        $mlUrl = rtrim(env('URL_ML_SPORTS', 'http://72.61.213.163:8080'), '/') . '/predict';
 
         $resp = Http::withOptions(['timeout' => 15])
             ->retry(2, 500)
@@ -273,7 +273,7 @@ class RecomendationSportController extends Controller
         $resp = Http::timeout(15)
             ->retry(2, 500)
             ->acceptJson()
-            ->post(rtrim(env('URL_ML_SPORTS'), '/') . '/predict', $forward);
+            ->post(rtrim(env('URL_ML_SPORTS', 'http://72.61.213.163:8080'), '/') . '/predict', $forward);
 
         if (! $resp->ok()) {
             return response()->json([
