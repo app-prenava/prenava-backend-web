@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Auth;
 */
 
 Route::get('/', function () {
-    return redirect('/api');
+    abort(404);
 });
 
 // Route::get('/api-tester', function () {
