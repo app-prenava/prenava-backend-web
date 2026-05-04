@@ -47,9 +47,8 @@ class RecomendationSportController extends Controller
             ], 404);
         }
 
-        $gestationalAgeWeeks = round(
-            Carbon::parse($preg->lmp_date)->diffInDays(now()) / 7,
-            1
+        $gestationalAgeWeeks = (int) round(
+            Carbon::parse($preg->lmp_date)->diffInDays(now()) / 7
         );
 
         $a = DB::table('pregnancy_assessments')
@@ -64,29 +63,40 @@ class RecomendationSportController extends Controller
         }
 
         $needUpdateData = Carbon::parse($a->updated_at)
-        ->addDays(30)
-        ->lessThanOrEqualTo(now());
+            ->addDays(30)
+            ->lessThanOrEqualTo(now());
+        
+        $totalSportData = DB::table('data_ml_sport')->count();
 
+        if ($totalSportData === 0) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Sport activity data is not yet available.',
+            ], 404);
+        }
+
+        // Payload baru sesuai struktur /predict
         $forward = [
-            'age'                      => $age,
-            'gestational_age_weeks'    => (int) $gestationalAgeWeeks,
-            'bmi'                      => (float) $a->bmi,
-
-            'blood_pressure_systolic'  => $a->hypertension ? 150 : 90,
-            'blood_pressure_diastolic' => $a->hypertension ? 100 : 80,
-            'blood_sugar'              => $a->is_diabetes ? 200 : 80,
-            'body_temp'                => $a->is_fever ? 40.0 : 36.5,
-            'heart_rate'               => $a->is_high_heart_rate ? 120 : 80,
-
-            'previous_complications'   => (bool) $a->previous_complications,
-            'preexisting_diabetes'     => (bool) $a->is_diabetes,
-            'gestational_diabetes'     => (bool) $a->gestational_diabetes,
-            'mental_health_issue'      => (bool) $a->mental_health_issue,
-            'placenta_position_restriction' => (bool) ($a->placenta_position_restriction ?? false),
-
-            'low_impact_pref' => (bool) $a->low_impact_pref,
-            'water_access'    => (bool) $a->water_access,
-            'back_pain'       => (bool) $a->back_pain,
+            'model_input' => [
+                'age'                    => $age,
+                'systolic_bp'            => $a->hypertension ? 150 : 90,
+                'diastolic_bp'           => $a->hypertension ? 100 : 80,
+                'blood_sugar'            => $a->is_diabetes ? 200 : 80,
+                'body_temp'              => $a->is_fever ? 40.0 : 36.5,
+                'bmi'                    => (float) $a->bmi,
+                'previous_complications' => (bool) $a->previous_complications,
+                'preexisting_diabetes'   => (bool) $a->is_diabetes,
+                'gestational_diabetes'   => (bool) $a->gestational_diabetes,
+                'mental_health_issue'    => (bool) $a->mental_health_issue,
+                'heart_rate'             => $a->is_high_heart_rate ? 120 : 80,
+            ],
+            'recommendation_context' => [
+                'gestational_age_weeks'       => $gestationalAgeWeeks,
+                'placenta_position_restriction' => (bool) ($a->placenta_position_restriction ?? false),
+                'low_impact_preference'       => (bool) $a->low_impact_pref,
+                'water_access'                => (bool) $a->water_access,
+                'back_pain'                   => (bool) $a->back_pain,
+            ],
         ];
 
         $mlUrl = rtrim(env('URL_ML_SPORTS', 'http://72.61.213.163:8080'), '/') . '/predict';
@@ -98,47 +108,35 @@ class RecomendationSportController extends Controller
 
         if (! $resp->ok()) {
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Upstream prediction service error.',
+                'status'          => 'error',
+                'message'         => 'Upstream prediction service error.',
                 'upstream_status' => $resp->status(),
             ], 502);
         }
 
         $ml = $resp->json();
 
-        $activities = collect($ml['recommendations'] ?? [])
-            ->pluck('activity')
+        // Ambil semua code dari seluruh recommendation level
+        $allCodes = collect($ml['recommendations'] ?? [])
+            ->flatten(1)
+            ->pluck('code')
             ->filter()
             ->unique()
             ->values()
             ->all();
 
-        $meta = DB::table('data_ml_sport')
-            ->get()
-            ->mapWithKeys(function ($item) {
-                // Normalize key: lowercase and replace underscore/dash with space
-                $key = strtolower(str_replace(['_', '-'], ' ', $item->activity));
-                return [$key => $item];
-            });
-
+        // Ambil detail dari tabel data_ml_sport berdasarkan code
         $baseUrl = rtrim(env('APP_URL'), '/');
 
-        $mapping = [
-            'prenatal_yoga'      => 'Yoga Hamil',
-            'pelvic_floor'       => 'Senam Kegel',
-            'stationary_cycling' => 'Sepeda Statis',
-            'pilates'            => 'Pilates Hamil',
-            'walking'            => 'Jalan Santai',
-            'swimming'           => 'Berenang',
-        ];
+        $metaByCode = DB::table('data_ml_sport')
+            ->whereIn('code', $allCodes)
+            ->get()
+            ->keyBy('code');
 
-        $enrich = function ($item) use ($meta, $baseUrl, $mapping) {
-            $rawActivity = $item['activity'] ?? '';
-            // Try to map if technical slug is returned
-            $mappedActivity = $mapping[strtolower($rawActivity)] ?? $rawActivity;
-            
-            $activityKey = strtolower(str_replace(['_', '-'], ' ', $mappedActivity));
-            $m = $meta[$activityKey] ?? null;
+        // Enrich tiap item dengan detail dari DB
+        $enrich = function (array $item) use ($metaByCode, $baseUrl): array {
+            $code = $item['code'] ?? null;
+            $m    = $code ? ($metaByCode[$code] ?? null) : null;
 
             return array_merge($item, [
                 'video_link' => $m?->video_link,
@@ -149,13 +147,18 @@ class RecomendationSportController extends Controller
             ]);
         };
 
-        $ml['recommendations'] = array_map($enrich, $ml['recommendations'] ?? []);
-
-        if (!empty($ml['all_ranked'])) {
-            $ml['all_ranked'] = array_map($enrich, $ml['all_ranked']);
+        // Enrich semua recommendation level
+        $recommendations = $ml['recommendations'] ?? [];
+        foreach ($recommendations as $level => $items) {
+            $recommendations[$level] = array_map($enrich, $items);
         }
 
-        // Log rekomendasi gerakan
+        // Enrich all jika ada
+        $allRanked = isset($ml['recommendations']['all'])
+            ? array_map($enrich, $ml['recommendations']['all'])
+            : [];
+
+        // Log aktivitas
         $user = User::find($uid);
         if ($user) {
             ActivityLogService::logFromUser(
@@ -167,11 +170,13 @@ class RecomendationSportController extends Controller
         }
 
         return response()->json([
-            'status'         => 'success',
-            'need_update_data'  => $needUpdateData,
-            'message'        => 'Sport recommendation fetched.',
-            'forward_payload'=> $forward,
-            'model_response' => $ml,
+            'status'          => 'success',
+            'need_update_data'=> $needUpdateData,
+            'message'         => 'Sport recommendation fetched.',
+            'forward_payload' => $forward,
+            'prediction'      => $ml['prediction'] ?? null,
+            'recommendations' => $recommendations,
+            'meta'            => $ml['meta'] ?? null,
         ]);
     }
     public function createRecomendation(Request $request): JsonResponse
@@ -179,18 +184,18 @@ class RecomendationSportController extends Controller
         [$uid] = AuthToken::assertRoleFresh($request, 'ibu_hamil');
 
         $v = Validator::make($request->all(), [
-            'bmi'                       => ['required','numeric','min:10','max:60'],
-            'hypertension'              => ['required','boolean'],
-            'is_diabetes'               => ['required','boolean'],
-            'gestational_diabetes'      => ['required','boolean'],
-            'is_fever'                  => ['required','boolean'],
-            'is_high_heart_rate'        => ['required','boolean'],
-            'previous_complications'    => ['required','boolean'],
-            'mental_health_issue'       => ['required','boolean'],
-            'low_impact_pref'           => ['required','boolean'],
-            'water_access'              => ['required','boolean'],
-            'back_pain'                 => ['required','boolean'],
-            'placenta_position_restriction' => ['nullable','boolean'],
+            'bmi'                           => ['required', 'numeric', 'min:10', 'max:60'],
+            'hypertension'                  => ['required', 'boolean'],
+            'is_diabetes'                   => ['required', 'boolean'],
+            'gestational_diabetes'          => ['required', 'boolean'],
+            'is_fever'                      => ['required', 'boolean'],
+            'is_high_heart_rate'            => ['required', 'boolean'],
+            'previous_complications'        => ['required', 'boolean'],
+            'mental_health_issue'           => ['required', 'boolean'],
+            'low_impact_pref'               => ['required', 'boolean'],
+            'water_access'                  => ['required', 'boolean'],
+            'back_pain'                     => ['required', 'boolean'],
+            'placenta_position_restriction' => ['nullable', 'boolean'],
         ]);
 
         if ($v->fails()) {
@@ -232,26 +237,25 @@ class RecomendationSportController extends Controller
             ], 404);
         }
 
-        $gestationalAgeWeeks = round(
-            Carbon::parse($preg->lmp_date)->diffInDays(now()) / 7,
-            1
+        $gestationalAgeWeeks = (int) round(
+            Carbon::parse($preg->lmp_date)->diffInDays(now()) / 7
         );
 
         $assessmentData = [
-            'pregnancy_id'           => $preg->pregnancy_id,
-            'bmi'                    => $d['bmi'],
-            'hypertension'           => $d['hypertension'],
-            'is_diabetes'            => $d['is_diabetes'],
-            'gestational_diabetes'   => $d['gestational_diabetes'],
-            'is_fever'               => $d['is_fever'],
-            'is_high_heart_rate'     => $d['is_high_heart_rate'],
-            'previous_complications' => $d['previous_complications'],
-            'mental_health_issue'    => $d['mental_health_issue'],
-            'back_pain'              => $d['back_pain'],
-            'low_impact_pref'        => $d['low_impact_pref'],
-            'water_access'           => $d['water_access'],
-            'placenta_previa'        => (bool) ($d['placenta_position_restriction'] ?? false),
-            'updated_at'             => now(),
+            'pregnancy_id'                  => $preg->pregnancy_id,
+            'bmi'                           => $d['bmi'],
+            'hypertension'                  => $d['hypertension'],
+            'is_diabetes'                   => $d['is_diabetes'],
+            'gestational_diabetes'          => $d['gestational_diabetes'],
+            'is_fever'                      => $d['is_fever'],
+            'is_high_heart_rate'            => $d['is_high_heart_rate'],
+            'previous_complications'        => $d['previous_complications'],
+            'mental_health_issue'           => $d['mental_health_issue'],
+            'back_pain'                     => $d['back_pain'],
+            'low_impact_pref'               => $d['low_impact_pref'],
+            'water_access'                  => $d['water_access'],
+            'placenta_previa'               => (bool) ($d['placenta_position_restriction'] ?? false),
+            'updated_at'                    => now(),
         ];
 
         $existing = DB::table('pregnancy_assessments')
@@ -268,23 +272,28 @@ class RecomendationSportController extends Controller
             );
         }
 
+        // Payload baru sesuai struktur /predict
         $forward = [
-            'age'                        => $age,
-            'gestational_age_weeks'      => (int) $gestationalAgeWeeks,
-            'bmi'                        => (float) $d['bmi'],
-            'blood_pressure_systolic'    => $d['hypertension'] ? 150 : 90,
-            'blood_pressure_diastolic'   => $d['hypertension'] ? 100 : 80,
-            'blood_sugar'                => $d['is_diabetes'] ? 200 : 80,
-            'body_temp'                  => $d['is_fever'] ? 40.0 : 36.5,
-            'heart_rate'                 => $d['is_high_heart_rate'] ? 120 : 80,
-            'previous_complications'     => (bool) $d['previous_complications'],
-            'preexisting_diabetes'       => (bool) $d['is_diabetes'],
-            'gestational_diabetes'       => (bool) $d['gestational_diabetes'],
-            'mental_health_issue'        => (bool) $d['mental_health_issue'],
-            'placenta_position_restriction' => (bool) ($d['placenta_position_restriction'] ?? false),
-            'low_impact_pref'            => (bool) $d['low_impact_pref'],
-            'water_access'               => (bool) $d['water_access'],
-            'back_pain'                  => (bool) $d['back_pain'],
+            'model_input' => [
+                'age'                    => $age,
+                'systolic_bp'            => $d['hypertension'] ? 150 : 90,
+                'diastolic_bp'           => $d['hypertension'] ? 100 : 80,
+                'blood_sugar'            => $d['is_diabetes'] ? 200 : 80,
+                'body_temp'              => $d['is_fever'] ? 40.0 : 36.5,
+                'bmi'                    => (float) $d['bmi'],
+                'previous_complications' => (bool) $d['previous_complications'],
+                'preexisting_diabetes'   => (bool) $d['is_diabetes'],
+                'gestational_diabetes'   => (bool) $d['gestational_diabetes'],
+                'mental_health_issue'    => (bool) $d['mental_health_issue'],
+                'heart_rate'             => $d['is_high_heart_rate'] ? 120 : 80,
+            ],
+            'recommendation_context' => [
+                'gestational_age_weeks'         => $gestationalAgeWeeks,
+                'placenta_position_restriction' => (bool) ($d['placenta_position_restriction'] ?? false),
+                'low_impact_preference'         => (bool) $d['low_impact_pref'],
+                'water_access'                  => (bool) $d['water_access'],
+                'back_pain'                     => (bool) $d['back_pain'],
+            ],
         ];
 
         $resp = Http::timeout(15)
@@ -294,69 +303,52 @@ class RecomendationSportController extends Controller
 
         if (! $resp->ok()) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Upstream prediction service error.',
             ], 502);
         }
 
         $ml = $resp->json();
 
-        /* =========================
-        * Enrich metadata + APP_URL
-        * ========================= */
-        $activities = collect($ml['recommendations'] ?? [])
-            ->pluck('activity')
+        // Ambil semua code dari seluruh recommendation level
+        $allCodes = collect($ml['recommendations'] ?? [])
+            ->flatten(1)
+            ->pluck('code')
+            ->filter()
             ->unique()
-            ->values();
+            ->values()
+            ->all();
 
-        $meta = DB::table('data_ml_sport')
+        $baseUrl = rtrim(env('APP_URL'), '/');
+
+        $metaByCode = DB::table('data_ml_sport')
+            ->whereIn('code', $allCodes)
             ->get()
-            ->mapWithKeys(function ($item) {
-                $key = strtolower(str_replace(['_', '-'], ' ', $item->activity));
-                return [$key => $item];
-            });
+            ->keyBy('code');
 
-        $appUrl = rtrim(config('app.url'), '/');
-        $fallback = 'data not found';
+        if ($metaByCode->isEmpty()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Sport activity data is not yet available.',
+            ], 404);
+        }
 
-        $mapping = [
-            'prenatal_yoga'      => 'Yoga Hamil',
-            'pelvic_floor'       => 'Senam Kegel',
-            'stationary_cycling' => 'Sepeda Statis',
-            'pilates'            => 'Pilates Hamil',
-            'walking'            => 'Jalan Santai',
-            'swimming'           => 'Berenang',
-        ];
-
-        $map = function ($item) use ($meta, $fallback, $appUrl, $mapping) {
-            $rawActivity = $item['activity'] ?? '';
-            $mappedActivity = $mapping[strtolower($rawActivity)] ?? $rawActivity;
-
-            $activityKey = strtolower(str_replace(['_', '-'], ' ', $mappedActivity));
-            $m = $meta[$activityKey] ?? null;
-
-            foreach (['picture_1','picture_2','picture_3'] as $p) {
-                if ($m && $m->$p) {
-                    // Avoid double prefixing if it already starts with http
-                    if (!str_starts_with($m->$p, 'http')) {
-                        $m->$p = $appUrl . $m->$p;
-                    }
-                }
-            }
+        $enrich = function (array $item) use ($metaByCode, $baseUrl): array {
+            $code = $item['code'] ?? null;
+            $m    = $code ? ($metaByCode[$code] ?? null) : null;
 
             return array_merge($item, [
                 'video_link' => $m?->video_link,
                 'long_text'  => $m?->long_text,
-                'picture_1'  => $m?->picture_1,
-                'picture_2'  => $m?->picture_2,
-                'picture_3'  => $m?->picture_3,
+                'picture_1'  => ($m && $m->picture_1) ? $baseUrl . $m->picture_1 : null,
+                'picture_2'  => ($m && $m->picture_2) ? $baseUrl . $m->picture_2 : null,
+                'picture_3'  => ($m && $m->picture_3) ? $baseUrl . $m->picture_3 : null,
             ]);
         };
 
-        $ml['recommendations'] = array_map($map, $ml['recommendations'] ?? []);
-
-        if (! empty($ml['all_ranked'])) {
-            $ml['all_ranked'] = array_map($map, $ml['all_ranked']);
+        $recommendations = $ml['recommendations'] ?? [];
+        foreach ($recommendations as $level => $items) {
+            $recommendations[$level] = array_map($enrich, $items);
         }
 
         // Log pengisian assessment rekomendasi gerakan
@@ -372,9 +364,12 @@ class RecomendationSportController extends Controller
         }
 
         return response()->json([
-            'status'         => 'success',
-            'message'        => 'Sport recommendation success.',
-            'model_response' => $ml,
+            'status'          => 'success',
+            'message'         => 'Sport recommendation created successfully.',
+            'forward_payload' => $forward,
+            'prediction'      => $ml['prediction'] ?? null,
+            'recommendations' => $recommendations,
+            'meta'            => $ml['meta'] ?? null,
         ], 200);
     }
 
@@ -382,25 +377,19 @@ class RecomendationSportController extends Controller
     {
         [$uid] = AuthToken::assertRoleFresh($request, 'admin');
 
-        $q = trim((string) $request->query('q', ''));
+        $q       = trim((string) $request->query('q', ''));
         $perPage = (int) $request->query('per_page', 50);
         $perPage = max(1, min($perPage, 200));
 
         $query = DB::table('data_ml_sport')
-            ->select([
-                'activity',
-                'video_link',
-                'long_text',
-                'picture_1',
-                'picture_2',
-                'picture_3',
-                'created_at',
-                'updated_at',
-            ])
-            ->orderBy('activity');
+            ->select(['id', 'code', 'name', 'video_link', 'long_text', 'picture_1', 'picture_2', 'picture_3', 'created_at', 'updated_at'])
+            ->orderBy('name');
 
         if ($q !== '') {
-            $query->where('activity', 'like', '%' . $q . '%');
+            $query->where(function ($q2) use ($q) {
+                $q2->where('code', 'like', '%' . $q . '%')
+                ->orWhere('name', 'like', '%' . $q . '%');
+            });
         }
 
         $items = $query->limit($perPage)->get();
@@ -412,34 +401,22 @@ class RecomendationSportController extends Controller
         ], 200);
     }
 
-    // Public endpoint to get all sports (for users)
     public function getAllSportsPublic(): JsonResponse
     {
         $baseUrl = rtrim(config('app.url'), '/');
 
         $items = DB::table('data_ml_sport')
-            ->select([
-                'activity',
-                'video_link',
-                'long_text',
-                'picture_1',
-                'picture_2',
-                'picture_3',
-            ])
-            ->orderBy('activity')
-            ->get();
-
-        // Enrich picture URLs
-        $items = $items->map(function ($item) use ($baseUrl) {
-            foreach (['picture_1', 'picture_2', 'picture_3'] as $pic) {
-                if ($item->$pic && !str_starts_with($item->$pic, 'http')) {
-                    $item->$pic = $baseUrl . $item->$pic;
+            ->select(['code', 'name', 'video_link', 'long_text', 'picture_1', 'picture_2', 'picture_3'])
+            ->orderBy('name')
+            ->get()
+            ->map(function ($item) use ($baseUrl) {
+                foreach (['picture_1', 'picture_2', 'picture_3'] as $pic) {
+                    if ($item->$pic && ! str_starts_with($item->$pic, 'http')) {
+                        $item->$pic = $baseUrl . $item->$pic;
+                    }
                 }
-            }
-            // Add default score for display
-            $item->score = 0.5; // Default neutral score
-            return $item;
-        });
+                return $item;
+            });
 
         return response()->json([
             'status'  => 'success',
@@ -448,22 +425,13 @@ class RecomendationSportController extends Controller
         ], 200);
     }
 
-    public function showSportMeta(Request $request, string $activity): JsonResponse
+    public function showSportMeta(Request $request, string $code): JsonResponse
     {
         [$uid] = AuthToken::assertRoleFresh($request, 'admin');
 
         $row = DB::table('data_ml_sport')
-            ->select([
-                'activity',
-                'video_link',
-                'long_text',
-                'picture_1',
-                'picture_2',
-                'picture_3',
-                'created_at',
-                'updated_at',
-            ])
-            ->where('activity', $activity)
+            ->select(['id', 'code', 'name', 'video_link', 'long_text', 'picture_1', 'picture_2', 'picture_3', 'created_at', 'updated_at'])
+            ->where('code', $code)
             ->first();
 
         if (! $row) {
@@ -485,13 +453,13 @@ class RecomendationSportController extends Controller
         [$uid] = AuthToken::assertRoleFresh($request, 'admin');
 
         $v = Validator::make($request->all(), [
-            'activity'   => ['required','string','max:100'],
-            'video_link' => ['nullable','string','max:2048'],
-            'long_text'  => ['nullable','string'],
-
-            'picture_1'  => ['nullable','image','max:2048'],
-            'picture_2'  => ['nullable','image','max:2048'],
-            'picture_3'  => ['nullable','image','max:2048'],
+            'code'       => ['required', 'string', 'max:100'],
+            'name'       => ['required', 'string', 'max:150'],
+            'video_link' => ['nullable', 'string', 'max:2048'],
+            'long_text'  => ['nullable', 'string'],
+            'picture_1'  => ['nullable', 'image', 'max:2048'],
+            'picture_2'  => ['nullable', 'image', 'max:2048'],
+            'picture_3'  => ['nullable', 'image', 'max:2048'],
         ]);
 
         if ($v->fails()) {
@@ -504,23 +472,18 @@ class RecomendationSportController extends Controller
 
         $d = $v->validated();
 
-        if (DB::table('data_ml_sport')->where('activity', $d['activity'])->exists()) {
+        if (DB::table('data_ml_sport')->where('code', $d['code'])->exists()) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Activity already exists.',
+                'message' => 'Sport activity with this code already exists.',
             ], 409);
         }
 
-        $folder = 'sports';
-        $pictures = [
-            'picture_1' => null,
-            'picture_2' => null,
-            'picture_3' => null,
-        ];
+        $pictures = ['picture_1' => null, 'picture_2' => null, 'picture_3' => null];
 
         foreach ($pictures as $key => $_) {
             if ($request->hasFile($key)) {
-                $path = $request->file($key)->store($folder, 'public');
+                $path         = $request->file($key)->store('sports', 'public');
                 $pictures[$key] = '/storage/' . $path;
             }
         }
@@ -528,7 +491,8 @@ class RecomendationSportController extends Controller
         $now = now();
 
         DB::table('data_ml_sport')->insert([
-            'activity'   => $d['activity'],
+            'code'       => $d['code'],
+            'name'       => $d['name'],
             'video_link' => $d['video_link'] ?? null,
             'long_text'  => $d['long_text'] ?? null,
             'picture_1'  => $pictures['picture_1'],
@@ -538,11 +502,8 @@ class RecomendationSportController extends Controller
             'updated_at' => $now,
         ]);
 
-        $row = DB::table('data_ml_sport')
-            ->where('activity', $d['activity'])
-            ->first();
-
-        $appUrl = rtrim(config('app.url'), '/');
+        $row     = DB::table('data_ml_sport')->where('code', $d['code'])->first();
+        $appUrl  = rtrim(config('app.url'), '/');
 
         foreach (['picture_1', 'picture_2', 'picture_3'] as $pic) {
             if ($row->$pic) {
@@ -557,22 +518,20 @@ class RecomendationSportController extends Controller
         ], 201);
     }
 
-
-    public function updateSportMeta(Request $request, string $activity): JsonResponse
+    public function updateSportMeta(Request $request, string $code): JsonResponse
     {
         [$uid] = AuthToken::assertRoleFresh($request, 'admin');
 
         $v = Validator::make($request->all(), [
-            'video_link' => ['nullable','string','max:2048'],
-            'long_text'  => ['nullable','string'],
-
-            'picture_1'  => ['nullable','file','image','max:5120'],
-            'picture_2'  => ['nullable','file','image','max:5120'],
-            'picture_3'  => ['nullable','file','image','max:5120'],
-
-            'remove_picture_1' => ['nullable','boolean'],
-            'remove_picture_2' => ['nullable','boolean'],
-            'remove_picture_3' => ['nullable','boolean'],
+            'name'             => ['sometimes', 'string', 'max:150'],
+            'video_link'       => ['nullable', 'string', 'max:2048'],
+            'long_text'        => ['nullable', 'string'],
+            'picture_1'        => ['nullable', 'file', 'image', 'max:5120'],
+            'picture_2'        => ['nullable', 'file', 'image', 'max:5120'],
+            'picture_3'        => ['nullable', 'file', 'image', 'max:5120'],
+            'remove_picture_1' => ['nullable', 'boolean'],
+            'remove_picture_2' => ['nullable', 'boolean'],
+            'remove_picture_3' => ['nullable', 'boolean'],
         ]);
 
         if ($v->fails()) {
@@ -583,7 +542,7 @@ class RecomendationSportController extends Controller
             ], 422);
         }
 
-        $exists = DB::table('data_ml_sport')->where('activity', $activity)->exists();
+        $exists = DB::table('data_ml_sport')->where('code', $code)->exists();
         if (! $exists) {
             return response()->json([
                 'status'  => 'error',
@@ -591,14 +550,12 @@ class RecomendationSportController extends Controller
             ], 404);
         }
 
-        $d = $v->validated();
-
-        $folder = 'ml_sport';
-
-        $old = DB::table('data_ml_sport')->where('activity', $activity)->first();
-
+        $d       = $v->validated();
         $payload = ['updated_at' => now()];
 
+        if ($request->has('name')) {
+            $payload['name'] = $d['name'];
+        }
         if ($request->has('video_link')) {
             $payload['video_link'] = $d['video_link'] ?? null;
         }
@@ -606,30 +563,18 @@ class RecomendationSportController extends Controller
             $payload['long_text'] = $d['long_text'] ?? null;
         }
 
-        if ($request->hasFile('picture_1')) {
-            $path = $request->file('picture_1')->store($folder, 'public');
-            $payload['picture_1'] = '/storage/' . $path;
-        } elseif (!empty($d['remove_picture_1'])) {
-            $payload['picture_1'] = null;
+        foreach (['picture_1', 'picture_2', 'picture_3'] as $key) {
+            if ($request->hasFile($key)) {
+                $path           = $request->file($key)->store('ml_sport', 'public');
+                $payload[$key]  = '/storage/' . $path;
+            } elseif (! empty($d['remove_' . $key])) {
+                $payload[$key] = null;
+            }
         }
 
-        if ($request->hasFile('picture_2')) {
-            $path = $request->file('picture_2')->store($folder, 'public');
-            $payload['picture_2'] = '/storage/' . $path;
-        } elseif (!empty($d['remove_picture_2'])) {
-            $payload['picture_2'] = null;
-        }
+        DB::table('data_ml_sport')->where('code', $code)->update($payload);
 
-        if ($request->hasFile('picture_3')) {
-            $path = $request->file('picture_3')->store($folder, 'public');
-            $payload['picture_3'] = '/storage/' . $path;
-        } elseif (!empty($d['remove_picture_3'])) {
-            $payload['picture_3'] = null;
-        }
-
-        DB::table('data_ml_sport')->where('activity', $activity)->update($payload);
-
-        $row = DB::table('data_ml_sport')->where('activity', $activity)->first();
+        $row = DB::table('data_ml_sport')->where('code', $code)->first();
 
         return response()->json([
             'status'  => 'success',
@@ -638,13 +583,12 @@ class RecomendationSportController extends Controller
         ], 200);
     }
 
-
-    public function deleteSportMeta(Request $request, string $activity): JsonResponse
+    public function deleteSportMeta(Request $request, string $code): JsonResponse
     {
         [$uid] = AuthToken::assertRoleFresh($request, 'admin');
 
         $deleted = DB::table('data_ml_sport')
-            ->where('activity', $activity)
+            ->where('code', $code)
             ->delete();
 
         if ($deleted < 1) {
@@ -657,7 +601,7 @@ class RecomendationSportController extends Controller
         return response()->json([
             'status'  => 'success',
             'message' => 'Sport metadata deleted.',
-            'activity'=> $activity,
+            'code'    => $code,
         ], 200);
     }
 
