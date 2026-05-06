@@ -14,11 +14,13 @@ class StuntingPredictionService
 {
     private string $mlBaseUrl;
     private int $timeout;
+    private int $connectTimeout;
 
     public function __construct()
     {
         $this->mlBaseUrl = rtrim(config('services.ml.stunting', 'http://127.0.0.1:8000'), '/');
-        $this->timeout   = (int) config('services.ml.stunting_timeout', 30);
+        $this->timeout        = (int) config('services.ml.stunting_timeout', 90);
+        $this->connectTimeout = (int) config('services.ml.stunting_connect_timeout', 10);
     }
 
     /**
@@ -90,7 +92,7 @@ class StuntingPredictionService
     private function callMlService(array $payload): array
     {
         $response = Http::timeout($this->timeout)
-            ->retry(2, 500)
+            ->connectTimeout($this->connectTimeout)
             ->withHeaders([
                 'Accept'       => 'application/json',
                 'Content-Type' => 'application/json',
@@ -100,12 +102,12 @@ class StuntingPredictionService
         if ($response->failed()) {
             Log::error('StuntingML: Upstream error', [
                 'status' => $response->status(),
-                'body'   => $response->body(),
+                'body'   => substr($response->body(), 0, 500),
             ]);
 
             throw new Exception(
                 "ML service returned HTTP {$response->status()}.",
-                502
+                $response->status() === 504 ? 504 : 502
             );
         }
 
