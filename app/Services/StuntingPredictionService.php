@@ -35,8 +35,15 @@ class StuntingPredictionService
         $startTime = microtime(true);
 
         try {
+            Log::info('StuntingML: Preparing prediction', ['user_id' => $userId]);
             $mlResponse = $this->callMlService($mlPayload);
             $latencyMs  = (int) round((microtime(true) - $startTime) * 1000);
+
+            Log::info('StuntingML: Received response', [
+                'status' => 'success',
+                'latency' => $latencyMs,
+                'prediction' => $mlResponse['prediction'] ?? 'N/A'
+            ]);
 
             // 3) Persist successful prediction inside a transaction
             return DB::transaction(function () use ($humanInput, $mlPayload, $mlResponse, $userId, $latencyMs) {
