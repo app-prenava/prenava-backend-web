@@ -39,6 +39,8 @@ use App\Http\Controllers\CatatanIbuController;
 use App\Http\Controllers\HistoryLogController;
 use App\Http\Controllers\DailyFeatureController;
 use App\Http\Controllers\LocalWisdomController;
+use App\Http\Controllers\StuntingPredictionController;
+use App\Http\Controllers\FoodRecommendationController;
 
 // Bidan Subscription Controllers
 use App\Http\Controllers\SubscriptionController;
@@ -388,4 +390,29 @@ Route::prefix('user')->middleware(['auth:api'])->group(function () {
     Route::post('/local-wisdom/toggle', [LocalWisdomController::class, 'toggle']);
     Route::get('/local-wisdom/analytics', [LocalWisdomController::class, 'analytics']);
 });
+
+// ============================================
+// STUNTING RISK PREDICTION
+// ============================================
+
+// Public: questionnaire metadata (no auth required)
+Route::get('/stunting/questions', [StuntingPredictionController::class, 'questions']);
+
+// Protected: prediction + history
+Route::prefix('stunting')->middleware(['auth:api'])->group(function () {
+    Route::post('/predict',      [StuntingPredictionController::class, 'predict']);
+    Route::get('/history',       [StuntingPredictionController::class, 'history']);
+    Route::get('/history/{id}',  [StuntingPredictionController::class, 'show']);
+
+    // Recommendations (on-demand, after prediction)
+    Route::get('/recommendations/{prediction_id}', [FoodRecommendationController::class, 'recommendations']);
+
+    // Gemini AI educational endpoints
+    Route::post('/gemini/cooking-guide', [FoodRecommendationController::class, 'cookingGuide']);
+    Route::post('/gemini/meal-plan',     [FoodRecommendationController::class, 'mealPlan']);
+});
+
+// Public: food catalog (no auth required)
+Route::get('/stunting/foods',      [FoodRecommendationController::class, 'index']);
+Route::get('/stunting/foods/{id}', [FoodRecommendationController::class, 'show']);
 

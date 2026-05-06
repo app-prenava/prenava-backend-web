@@ -45,6 +45,14 @@ return [
         'sports' => env('URL_ML_SPORTS'),
         'depression' => env('URL_ML_DEPRESSION'),
         'anemia' => env('URL_ML_ANEMIA'),
+        'stunting' => env('URL_ML_STUNTING', 'http://127.0.0.1:8000'),
+        'stunting_timeout' => env('ML_STUNTING_TIMEOUT', 30),
+    ],
+
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY', ''),
+        'model'   => env('GEMINI_MODEL', 'gemini-2.0-flash'),
+        'timeout' => env('GEMINI_TIMEOUT', 30),
     ],
 
 ];
