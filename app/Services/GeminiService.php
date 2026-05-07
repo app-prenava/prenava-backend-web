@@ -268,18 +268,11 @@ PROMPT;
                 'raw_text' => substr($text, 0, 500),
             ]);
 
-            // Fallback: return the raw text as a cooking guide
-            return [
-                'cooking_guide'  => $text,
-                'nutrition_tips' => null,
-                'meal_plan'      => null,
-            ];
+            // Fallback: return generic structure so each caller can decide.
+            return ['raw_text' => $text];
         }
 
-        return [
-            'cooking_guide'  => $parsed['cooking_guide'] ?? null,
-            'nutrition_tips' => $parsed['nutrition_tips'] ?? null,
-            'meal_plan'      => $parsed['meal_plan'] ?? null,
-        ];
+        // Return parsed object as-is so prompt-foods can read food_ids/reason.
+        return is_array($parsed) ? $parsed : null;
     }
 }
