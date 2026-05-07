@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class HealthScanHistory extends Model
 {
+    protected $table = 'health_scan_histories';
+
     protected $fillable = [
         'user_id',
         'type',
