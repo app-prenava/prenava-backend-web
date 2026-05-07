@@ -6,6 +6,7 @@ use App\Models\Food;
 use App\Models\MealPlan;
 use App\Models\MealPlanItem;
 use App\Models\StuntingPrediction;
+use App\Models\UserFoodPreference;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -89,11 +90,11 @@ class FoodRecommendationService
      * @param int $limit Max foods to return
      * @return array{foods: array, nutrient_priorities: array, factor_labels: array}
      */
-    public function recommend(StuntingPrediction $prediction, int $limit = 5): array
+    public function recommend(StuntingPrediction $prediction, int $limit = 5, ?UserFoodPreference $preference = null): array
     {
         $shapFactors = $this->extractShapFactors($prediction);
         $priorities  = $this->determineNutrientPriorities($shapFactors);
-        $foods       = $this->pickDiverseFoods($priorities, $limit);
+        $foods       = $this->pickDiverseFoods($priorities, $limit, $preference);
 
         $reason = $this->buildReason($shapFactors);
 
@@ -113,9 +114,9 @@ class FoodRecommendationService
     /**
      * Generate lightweight recommendations for low-risk predictions.
      */
-    public function recommendLowRisk(int $limit = 3): array
+    public function recommendLowRisk(int $limit = 3, ?UserFoodPreference $preference = null): array
     {
-        $foods = $this->pickDiverseFoods(['protein', 'calories'], $limit);
+        $foods = $this->pickDiverseFoods(['protein', 'calories'], $limit, $preference);
 
         return $foods->map(function (Food $food) {
             $item = $this->foodToArray($food);
@@ -435,23 +436,47 @@ class FoodRecommendationService
         return $labels;
     }
 
-    private function pickDiverseFoods(array $priorities, int $limit)
+    private function pickDiverseFoods(array $priorities, int $limit, ?UserFoodPreference $preference = null)
     {
         $selected = collect();
         $usedCategories = [];
+        $excludeIds = [];
+
+        // Preference filters
+        $excludedCategories = collect($preference?->excluded_categories ?? [])->map(fn ($c) => mb_strtolower(trim($c)))->filter()->values()->all();
+        $preferredCategories = collect($preference?->preferred_categories ?? [])->map(fn ($c) => mb_strtolower(trim($c)))->filter()->values()->all();
+        $avoidSpicy = (bool) ($preference?->avoid_spicy ?? false);
+        $excludedKeywords = collect($preference?->excluded_keywords ?? [])->map(fn ($k) => mb_strtolower(trim($k)))->filter()->values()->all();
 
         foreach ($priorities as $nutrient) {
             if ($selected->count() >= $limit) {
                 break;
             }
 
-            $candidate = Food::query()
+            $candidateQuery = Food::query()
                 ->whereNotIn('id', $selected->pluck('id')->all())
+                ->whereNotIn('id', $excludeIds)
                 ->where($nutrient, '>', 0)
                 ->when(!empty($usedCategories), fn ($q) => $q->whereNotIn('category', $usedCategories))
+                ->when(!empty($excludedCategories), fn ($q) => $q->whereRaw('LOWER(category) NOT IN (' . implode(',', array_fill(0, count($excludedCategories), '?')) . ')', $excludedCategories))
+                ->when(!empty($preferredCategories), fn ($q) => $q->whereRaw('LOWER(category) IN (' . implode(',', array_fill(0, count($preferredCategories), '?')) . ')', $preferredCategories))
                 ->orderBy($nutrient, 'desc')
                 ->orderBy('recipe_loves', 'desc')
-                ->first();
+                ->limit(30);
+
+            // Avoid spicy heuristic on name
+            if ($avoidSpicy) {
+                $candidateQuery->where('name', 'not like', '%pedas%')
+                    ->where('name', 'not like', '%cabe%')
+                    ->where('name', 'not like', '%sambal%');
+            }
+
+            foreach ($excludedKeywords as $keyword) {
+                $candidateQuery->where('name', 'not like', '%' . $keyword . '%');
+            }
+
+            // Randomize within top N for variety
+            $candidate = $candidateQuery->inRandomOrder()->first();
 
             if ($candidate) {
                 $selected->push($candidate);

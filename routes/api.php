@@ -41,6 +41,7 @@ use App\Http\Controllers\DailyFeatureController;
 use App\Http\Controllers\LocalWisdomController;
 use App\Http\Controllers\StuntingPredictionController;
 use App\Http\Controllers\FoodRecommendationController;
+use App\Http\Controllers\UserFoodPreferenceController;
 
 // Bidan Subscription Controllers
 use App\Http\Controllers\SubscriptionController;
@@ -417,10 +418,20 @@ Route::prefix('stunting')->middleware(['auth:api'])->group(function () {
     Route::post('/meal-plans/{id}/refresh-day', [FoodRecommendationController::class, 'refreshPlanDay']);
     Route::get('/meal-plans/{id}/progress', [FoodRecommendationController::class, 'mealPlanProgress']);
     Route::post('/meal-plans/items/{item_id}/completion', [FoodRecommendationController::class, 'setMealItemCompletion']);
+
+    // Personalization preferences
+    Route::get('/preferences',  [UserFoodPreferenceController::class, 'show']);
+    Route::post('/preferences', [UserFoodPreferenceController::class, 'upsert']);
+
+    // AI support (safe fallback on failure)
+    Route::post('/ai/nutrition-paragraph', [FoodRecommendationController::class, 'nutritionParagraph']);
+    Route::get('/ai/preference-questions', [FoodRecommendationController::class, 'preferenceQuestions']);
 });
 
 // Public: food catalog (no auth required)
 Route::get('/stunting/foods',      [FoodRecommendationController::class, 'index']);
 Route::get('/stunting/foods/{id}', [FoodRecommendationController::class, 'show']);
 Route::get('/stunting/recipes/{food_id}', [FoodRecommendationController::class, 'recipe']);
+Route::get('/stunting/recipes', [FoodRecommendationController::class, 'recipesIndex']);
+Route::get('/stunting/recipes/categories', [FoodRecommendationController::class, 'recipeCategories']);
 

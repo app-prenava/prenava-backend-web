@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('title_cleaned')->nullable()->index();
             $table->longText('ingredients')->nullable();
             $table->longText('steps')->nullable();
-            $table->unsignedInteger('loves')->nullable();
+            $table->unsignedInteger('loves')->nullable()->index();
             $table->string('source_url')->nullable()->index();
             $table->string('category', 100)->nullable()->index();
             $table->unsignedSmallInteger('total_ingredients')->nullable();

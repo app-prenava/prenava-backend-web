@@ -4,13 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\FoodResource;
 use App\Models\Food;
+use App\Models\FoodRecipe;
 use App\Models\MealPlan;
 use App\Models\MealPlanItem;
 use App\Models\StuntingPrediction;
+use App\Models\UserFoodPreference;
 use App\Services\FoodRecommendationService;
 use App\Services\GeminiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Exception;
 
@@ -61,7 +64,7 @@ class FoodRecommendationController extends Controller
             ], 404);
         }
 
-        // CACHE HIT — return stored results
+        // CACHE HIT — return stored results (but still personalized is handled by service)
         if ($prediction->hasCachedRecommendations()) {
             return response()->json([
                 'success' => true,
@@ -81,14 +84,15 @@ class FoodRecommendationController extends Controller
         // CACHE MISS — generate fresh recommendations
         try {
             $isHighRisk = $prediction->risk_label === 'high_risk';
+            $preference = UserFoodPreference::where('user_id', $user->user_id)->first();
 
             // Step 1: Rule-based food recommendations
             if ($isHighRisk) {
-                $result = $this->recommendationService->recommend($prediction);
+                $result = $this->recommendationService->recommend($prediction, 5, $preference);
                 $foods  = $result['foods'];
                 $labels = $result['factor_labels'];
             } else {
-                $foods  = $this->recommendationService->recommendLowRisk();
+                $foods  = $this->recommendationService->recommendLowRisk(3, $preference);
                 $labels = ['Kehamilan sehat'];
             }
 
@@ -562,7 +566,28 @@ class FoodRecommendationController extends Controller
             ], 404);
         }
 
-        if (empty($food->ingredients) && empty($food->steps)) {
+        // Prefer new canonical recipe table (linked via food_id)
+        $cacheKey = "recipes:food:{$foodId}";
+        $recipes = Cache::remember($cacheKey, now()->addMinutes(15), function () use ($foodId) {
+            return FoodRecipe::query()
+                ->where('food_id', $foodId)
+                ->orderByDesc('loves')
+                ->limit(10)
+                ->get([
+                    'id',
+                    'title',
+                    'ingredients',
+                    'steps',
+                    'loves',
+                    'source_url',
+                    'category',
+                    'total_ingredients',
+                    'total_steps',
+                ]);
+        });
+
+        // Fallback to embedded fields (legacy) if linking not available
+        if ($recipes->isEmpty() && empty($food->ingredients) && empty($food->steps)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Resep untuk makanan ini belum tersedia.',
@@ -574,12 +599,241 @@ class FoodRecommendationController extends Controller
             'data'    => [
                 'food_id'    => $food->id,
                 'food_name'  => $food->name,
-                'ingredients' => $food->ingredients,
-                'steps'       => $food->steps,
-                'source_url'  => $food->source_url,
-                'category'    => $food->recipe_category,
-                'loves'       => $food->recipe_loves,
+                'food'       => [
+                    'id'            => $food->id,
+                    'name'          => $food->name,
+                    'category'      => $food->category,
+                    'image_url'     => $food->image_url,
+                    'protein'       => $food->protein,
+                    'calories'      => $food->calories,
+                    'fat'           => $food->fat,
+                    'carbohydrates' => $food->carbohydrates,
+                    'iron'          => $food->iron,
+                    'calcium'       => $food->calcium,
+                    'vitamin_a'     => $food->vitamin_a,
+                    'description'   => $food->description,
+                ],
+                'recipes'    => $recipes,
+                'legacy'     => (empty($food->ingredients) && empty($food->steps)) ? null : [
+                    'ingredients' => $food->ingredients,
+                    'steps'       => $food->steps,
+                    'source_url'  => $food->source_url,
+                    'category'    => $food->recipe_category,
+                    'loves'       => $food->recipe_loves,
+                ],
             ],
+        ]);
+    }
+
+    /**
+     * GET /api/stunting/recipes/categories
+     *
+     * Categories based on receipt dataset (ayam, ikan, dll) + other recipe categories.
+     */
+    public function recipeCategories(Request $request): JsonResponse
+    {
+        $cacheKey = 'recipes:categories';
+        $categories = Cache::remember($cacheKey, now()->addMinutes(60), function () {
+            return FoodRecipe::query()
+                ->whereNotNull('category')
+                ->selectRaw('category, COUNT(*) as total')
+                ->groupBy('category')
+                ->orderByDesc('total')
+                ->get()
+                ->map(fn ($row) => ['category' => $row->category, 'total' => (int) $row->total])
+                ->values();
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $categories,
+        ]);
+    }
+
+    /**
+     * GET /api/stunting/recipes
+     *
+     * Paginated recipes list (optimized) with optional filters.
+     * query: category, search, per_page
+     */
+    public function recipesIndex(Request $request): JsonResponse
+    {
+        $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
+        $category = $request->query('category');
+        $search = $request->query('search');
+
+        // Join foods to expose image + nutrition for FE list cards (fast, select-minimal)
+        $query = FoodRecipe::query()
+            ->leftJoin('foods', 'foods.id', '=', 'food_recipes.food_id')
+            ->select([
+                'food_recipes.id as id',
+                'food_recipes.food_id as food_id',
+                'food_recipes.title as title',
+                'food_recipes.loves as loves',
+                'food_recipes.source_url as source_url',
+                'food_recipes.category as category',
+                'food_recipes.total_ingredients as total_ingredients',
+                'food_recipes.total_steps as total_steps',
+                'foods.name as food_name',
+                'foods.image_url as food_image_url',
+                'foods.category as food_category',
+                'foods.protein as protein',
+                'foods.calories as calories',
+                'foods.fat as fat',
+                'foods.carbohydrates as carbohydrates',
+                'foods.iron as iron',
+                'foods.calcium as calcium',
+            ])
+            ->orderByDesc('food_recipes.loves');
+
+        if ($category) {
+            $query->where('category', $category);
+        }
+
+        if ($search) {
+            $query->where('title', 'like', '%' . $search . '%');
+        }
+
+        $paginated = $query->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data' => $paginated->items(),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/stunting/ai/nutrition-paragraph
+     *
+     * Body:
+     * - foods: array of {name, calories, protein, fat, carbohydrates, iron?, calcium?} (max 10)
+     * - targets: optional object
+     */
+    public function nutritionParagraph(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $validated = $request->validate([
+            'foods' => 'required|array|min:1|max:10',
+            'foods.*.name' => 'required|string|max:200',
+            'foods.*.calories' => 'nullable|numeric',
+            'foods.*.protein' => 'nullable|numeric',
+            'foods.*.fat' => 'nullable|numeric',
+            'foods.*.carbohydrates' => 'nullable|numeric',
+            'foods.*.iron' => 'nullable|numeric',
+            'foods.*.calcium' => 'nullable|numeric',
+            'targets' => 'nullable|array',
+        ]);
+
+        $cacheKey = 'ai:nutrition:' . md5(json_encode($validated, JSON_UNESCAPED_UNICODE));
+        $cached = Cache::get($cacheKey);
+        if ($cached) {
+            return response()->json(['success' => true, 'cached' => true, 'data' => $cached]);
+        }
+
+        $result = $this->geminiService->getNutritionParagraph($validated['foods'], $validated['targets'] ?? null);
+
+        // Fallback: simple deterministic paragraph
+        if (!$result || empty($result['paragraph'])) {
+            $names = array_column($validated['foods'], 'name');
+            $result = [
+                'paragraph' => 'Menu ini terdiri dari ' . implode(', ', array_slice($names, 0, 5)) . '. Pilihan makanan ini membantu memenuhi kebutuhan energi dan protein selama kehamilan. Usahakan variasi sumber protein dan sayur-buah agar gizi lebih seimbang.',
+            ];
+        }
+
+        Cache::put($cacheKey, $result, now()->addMinutes(30));
+
+        return response()->json([
+            'success' => true,
+            'cached' => false,
+            'data' => $result,
+        ]);
+    }
+
+    /**
+     * GET /api/stunting/ai/preference-questions?prediction_id=123
+     *
+     * Dynamic questions per user (with safe fallback).
+     */
+    public function preferenceQuestions(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $predictionId = (int) $request->query('prediction_id', 0);
+        $prediction = null;
+        if ($predictionId > 0) {
+            $prediction = StuntingPrediction::forUser($user->user_id)
+                ->where('id', $predictionId)
+                ->successful()
+                ->first();
+        }
+
+        $pref = UserFoodPreference::where('user_id', $user->user_id)->first();
+        $context = [
+            'user_id' => $user->user_id,
+            'risk_label' => $prediction?->risk_label,
+            'probability' => $prediction?->probability,
+            'existing_preference' => $pref ? $pref->toArray() : null,
+        ];
+
+        $cacheKey = 'ai:pref_questions:' . md5(json_encode($context, JSON_UNESCAPED_UNICODE));
+        $cached = Cache::get($cacheKey);
+        if ($cached) {
+            return response()->json(['success' => true, 'cached' => true, 'data' => $cached]);
+        }
+
+        $result = $this->geminiService->generatePreferenceQuestions($context);
+
+        if (!$result || empty($result['questions'])) {
+            $result = [
+                'questions' => [
+                    [
+                        'id' => 'budget_level',
+                        'type' => 'single_select',
+                        'question' => 'Budget makan harian kamu kira-kira bagaimana?',
+                        'options' => [
+                            ['value' => 'low', 'label' => 'Hemat'],
+                            ['value' => 'mid', 'label' => 'Sedang'],
+                            ['value' => 'high', 'label' => 'Fleksibel'],
+                        ],
+                    ],
+                    [
+                        'id' => 'avoid_spicy',
+                        'type' => 'single_select',
+                        'question' => 'Apakah kamu menghindari makanan pedas?',
+                        'options' => [
+                            ['value' => true, 'label' => 'Ya'],
+                            ['value' => false, 'label' => 'Tidak'],
+                        ],
+                    ],
+                    [
+                        'id' => 'excluded_keywords',
+                        'type' => 'multi_text',
+                        'question' => 'Ada bahan atau kata kunci yang ingin dihindari? (contoh: udang, jeroan, santan)',
+                        'options' => [],
+                    ],
+                ],
+            ];
+        }
+
+        Cache::put($cacheKey, $result, now()->addHours(12));
+
+        return response()->json([
+            'success' => true,
+            'cached' => false,
+            'data' => $result,
         ]);
     }
 

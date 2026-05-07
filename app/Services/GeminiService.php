@@ -86,6 +86,73 @@ PROMPT;
     }
 
     /**
+     * Generate a short nutrition paragraph for a list of foods.
+     *
+     * @return array|null { "paragraph": "..." }
+     */
+    public function getNutritionParagraph(array $foods, ?array $targets = null): ?array
+    {
+        $foodText = json_encode($foods, JSON_UNESCAPED_UNICODE);
+        $targetsText = $targets ? json_encode($targets, JSON_UNESCAPED_UNICODE) : 'null';
+
+        $prompt = <<<PROMPT
+Kamu adalah ahli gizi prenatal. Buat 1 paragraf singkat (maks 3 kalimat) yang menjelaskan kandungan nutrisi dari makanan berikut dan kenapa bagus untuk ibu hamil.
+
+Data makanan (JSON): {$foodText}
+Target gizi harian (JSON, opsional): {$targetsText}
+
+Balas hanya JSON murni tanpa markdown:
+{ "paragraph": "..." }
+
+Gunakan bahasa Indonesia sederhana. Jangan klaim medis berlebihan. Jangan menyebut brand.
+PROMPT;
+
+        return $this->callGemini($prompt);
+    }
+
+    /**
+     * Generate dynamic questions to collect user preferences.
+     *
+     * @return array|null { "questions": [ { "id": "...", "type": "...", "question": "...", "options": [...] } ] }
+     */
+    public function generatePreferenceQuestions(array $context): ?array
+    {
+        $ctx = json_encode($context, JSON_UNESCAPED_UNICODE);
+
+        $prompt = <<<PROMPT
+Kamu adalah asisten nutrisi untuk ibu hamil. Buat pertanyaan personalisasi rekomendasi makanan.
+Gunakan konteks (JSON): {$ctx}
+
+Tujuan pertanyaan:
+1) preferensi bahan (contoh: ayam/ikan/telur/tempe/tahu)
+2) alergi/yang dihindari
+3) toleransi pedas
+4) budget (low/mid/high)
+5) kebiasaan makan (sarapan dll)
+
+Balas hanya JSON murni tanpa markdown:
+{
+  "questions": [
+    {
+      "id": "budget_level",
+      "type": "single_select",
+      "question": "Budget makan harian kamu kira-kira bagaimana?",
+      "options": [
+        {"value":"low","label":"Hemat"},
+        {"value":"mid","label":"Sedang"},
+        {"value":"high","label":"Fleksibel"}
+      ]
+    }
+  ]
+}
+
+Maksimal 8 pertanyaan. Bahasa Indonesia sederhana.
+PROMPT;
+
+        return $this->callGemini($prompt);
+    }
+
+    /**
      * Call Gemini API and parse the JSON response.
      *
      * @return array|null Returns null on any failure
