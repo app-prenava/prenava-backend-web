@@ -687,11 +687,11 @@ class FoodRecommendationController extends Controller
             ->orderByDesc('food_recipes.loves');
 
         if ($category) {
-            $query->where('category', $category);
+            $query->where('food_recipes.category', $category);
         }
 
         if ($search) {
-            $query->where('title', 'like', '%' . $search . '%');
+            $query->where('food_recipes.title', 'like', '%' . $search . '%');
         }
 
         $paginated = $query->paginate($perPage);
