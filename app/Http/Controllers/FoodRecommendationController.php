@@ -636,11 +636,15 @@ class FoodRecommendationController extends Controller
         $categories = Cache::remember($cacheKey, now()->addMinutes(60), function () {
             return FoodRecipe::query()
                 ->whereNotNull('category')
-                ->selectRaw('category, COUNT(*) as total')
+                ->selectRaw('category, COUNT(*) as total, SUM(CASE WHEN food_id IS NOT NULL THEN 1 ELSE 0 END) as total_with_food_info')
                 ->groupBy('category')
                 ->orderByDesc('total')
                 ->get()
-                ->map(fn ($row) => ['category' => $row->category, 'total' => (int) $row->total])
+                ->map(fn ($row) => [
+                    'category' => $row->category,
+                    'total' => (int) $row->total,
+                    'total_with_food_info' => (int) $row->total_with_food_info,
+                ])
                 ->values();
         });
 
@@ -661,6 +665,8 @@ class FoodRecommendationController extends Controller
         $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
         $category = $request->query('category');
         $search = $request->query('search');
+        $hasFoodInfo = $request->query('has_food_info');
+        $sort = $request->query('sort', 'popular'); // popular|newest
 
         // Join foods to expose image + nutrition for FE list cards (fast, select-minimal)
         $query = FoodRecipe::query()
@@ -684,7 +690,14 @@ class FoodRecommendationController extends Controller
                 'foods.iron as iron',
                 'foods.calcium as calcium',
             ])
-            ->orderByDesc('food_recipes.loves');
+            ->when($hasFoodInfo !== null, function ($q) use ($hasFoodInfo) {
+                $truthy = in_array((string) $hasFoodInfo, ['1', 'true', 'yes'], true);
+                return $truthy
+                    ? $q->whereNotNull('food_recipes.food_id')
+                    : $q->whereNull('food_recipes.food_id');
+            })
+            ->when($sort === 'newest', fn ($q) => $q->orderByDesc('food_recipes.id'))
+            ->when($sort !== 'newest', fn ($q) => $q->orderByDesc('food_recipes.loves'));
 
         if ($category) {
             $query->where('food_recipes.category', $category);
@@ -698,12 +711,69 @@ class FoodRecommendationController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $paginated->items(),
+            'data' => collect($paginated->items())->map(function ($row) {
+                // $row is stdClass when using join + select
+                $arr = (array) $row;
+                $arr['has_food_info'] = !empty($arr['food_id']);
+                return $arr;
+            })->values(),
             'meta' => [
                 'current_page' => $paginated->currentPage(),
                 'last_page' => $paginated->lastPage(),
                 'per_page' => $paginated->perPage(),
                 'total' => $paginated->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/stunting/recipes/by-id/{recipe_id}
+     *
+     * Always returns recipe detail. If linked to foods, include food nutrition/image as optional extra info.
+     */
+    public function recipeById(int $recipeId): JsonResponse
+    {
+        $recipe = FoodRecipe::query()
+            ->with(['food:id,name,category,image_url,protein,calories,fat,carbohydrates,iron,calcium,vitamin_a,description'])
+            ->find($recipeId);
+
+        if (!$recipe) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Resep tidak ditemukan.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'recipe' => [
+                    'id' => $recipe->id,
+                    'food_id' => $recipe->food_id,
+                    'title' => $recipe->title,
+                    'ingredients' => $recipe->ingredients,
+                    'steps' => $recipe->steps,
+                    'loves' => $recipe->loves,
+                    'source_url' => $recipe->source_url,
+                    'category' => $recipe->category,
+                    'total_ingredients' => $recipe->total_ingredients,
+                    'total_steps' => $recipe->total_steps,
+                ],
+                'food' => $recipe->food ? [
+                    'id'            => $recipe->food->id,
+                    'name'          => $recipe->food->name,
+                    'category'      => $recipe->food->category,
+                    'image_url'     => $recipe->food->image_url,
+                    'protein'       => $recipe->food->protein,
+                    'calories'      => $recipe->food->calories,
+                    'fat'           => $recipe->food->fat,
+                    'carbohydrates' => $recipe->food->carbohydrates,
+                    'iron'          => $recipe->food->iron,
+                    'calcium'       => $recipe->food->calcium,
+                    'vitamin_a'     => $recipe->food->vitamin_a,
+                    'description'   => $recipe->food->description,
+                ] : null,
+                'has_food_info' => (bool) $recipe->food_id,
             ],
         ]);
     }

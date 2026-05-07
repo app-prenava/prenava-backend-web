@@ -433,6 +433,8 @@ Route::get('/stunting/foods',      [FoodRecommendationController::class, 'index'
 Route::get('/stunting/foods/{id}', [FoodRecommendationController::class, 'show']);
 Route::get('/stunting/recipes', [FoodRecommendationController::class, 'recipesIndex']);
 Route::get('/stunting/recipes/categories', [FoodRecommendationController::class, 'recipeCategories']);
+Route::get('/stunting/recipes/by-id/{recipe_id}', [FoodRecommendationController::class, 'recipeById'])
+    ->whereNumber('recipe_id');
 Route::get('/stunting/recipes/{food_id}', [FoodRecommendationController::class, 'recipe'])
     ->whereNumber('food_id');
 
