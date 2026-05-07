@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Food;
+use App\Models\FoodRecipe;
 use App\Models\MealPlan;
 use App\Models\MealPlanItem;
 use App\Models\StuntingPrediction;
@@ -140,35 +141,23 @@ class FoodRecommendationService
             ? ['calories' => 2200, 'protein' => 75, 'iron' => 27, 'calcium' => 1000]
             : ['calories' => 2000, 'protein' => 65, 'iron' => 24, 'calcium' => 900];
 
-        $usedIds = [];
+        $usedRecipeIds = [];
         $meals = [];
 
         foreach (self::MEAL_SLOTS as $slot) {
             $nutrient = $this->slotNutrient($slot, $priorities);
-            $food = Food::query()
-                ->whereNotIn('id', $usedIds)
-                ->where($nutrient, '>', 0)
-                ->orderBy($nutrient, 'desc')
-                ->orderBy('recipe_loves', 'desc')
-                ->first();
+            $recipe = $this->pickRecipeForSlot($nutrient, $usedRecipeIds);
 
-            if (!$food) {
-                $food = Food::query()
-                    ->whereNotIn('id', $usedIds)
-                    ->orderBy('protein', 'desc')
-                    ->first();
-            }
-
-            if (!$food) {
+            if (!$recipe) {
                 continue;
             }
 
-            $usedIds[] = $food->id;
+            $usedRecipeIds[] = $recipe->id;
 
             $meals[] = [
                 'slot' => $slot,
                 'focus_nutrient' => $nutrient,
-                'food' => $this->foodToArray($food),
+                'food' => $this->recipeToArray($recipe),
             ];
         }
 
@@ -208,25 +197,25 @@ class FoodRecommendationService
                 'is_active' => true,
             ]);
 
-            $usedFoodIds = [];
+            $usedRecipeIds = [];
             for ($dayIndex = 0; $dayIndex < $days; $dayIndex++) {
                 foreach (self::MEAL_SLOTS as $slot) {
                     $nutrient = $this->slotNutrient($slot, $priorities);
-                    $food = $this->pickFoodForSlot($nutrient, $usedFoodIds);
+                    $recipe = $this->pickRecipeForSlot($nutrient, $usedRecipeIds);
 
-                    if (!$food) {
+                    if (!$recipe) {
                         continue;
                     }
 
-                    $usedFoodIds[] = $food->id;
+                    $usedRecipeIds[] = $recipe->id;
 
                     MealPlanItem::create([
                         'meal_plan_id' => $mealPlan->id,
-                        'food_id' => $food->id,
+                        'food_id' => $recipe->food_id,
                         'day_index' => $dayIndex,
                         'slot' => $slot,
                         'focus_nutrient' => $nutrient,
-                        'food_snapshot' => $this->foodToArray($food),
+                        'food_snapshot' => $this->recipeToArray($recipe),
                     ]);
                 }
             }
@@ -264,9 +253,10 @@ class FoodRecommendationService
         $priorities = $this->determineNutrientPriorities($this->extractShapFactors($prediction));
 
         return DB::transaction(function () use ($mealPlan, $dayIndex, $priorities) {
-            $keepFoodIds = $mealPlan->items()
+            $keepRecipeIds = $mealPlan->items()
                 ->where('day_index', '!=', $dayIndex)
-                ->pluck('food_id')
+                ->get(['food_snapshot'])
+                ->pluck('food_snapshot.recipe_id')
                 ->filter()
                 ->values()
                 ->all();
@@ -275,21 +265,21 @@ class FoodRecommendationService
 
             foreach (self::MEAL_SLOTS as $slot) {
                 $nutrient = $this->slotNutrient($slot, $priorities);
-                $food = $this->pickFoodForSlot($nutrient, $keepFoodIds);
+                $recipe = $this->pickRecipeForSlot($nutrient, $keepRecipeIds);
 
-                if (!$food) {
+                if (!$recipe) {
                     continue;
                 }
 
-                $keepFoodIds[] = $food->id;
+                $keepRecipeIds[] = $recipe->id;
 
                 MealPlanItem::create([
                     'meal_plan_id' => $mealPlan->id,
-                    'food_id' => $food->id,
+                    'food_id' => $recipe->food_id,
                     'day_index' => $dayIndex,
                     'slot' => $slot,
                     'focus_nutrient' => $nutrient,
-                    'food_snapshot' => $this->foodToArray($food),
+                    'food_snapshot' => $this->recipeToArray($recipe),
                 ]);
             }
 
@@ -516,21 +506,29 @@ class FoodRecommendationService
             : ['calories' => 2000, 'protein' => 65, 'iron' => 24, 'calcium' => 900];
     }
 
-    private function pickFoodForSlot(string $nutrient, array $excludeIds): ?Food
+    private function pickRecipeForSlot(string $nutrient, array $excludeRecipeIds): ?FoodRecipe
     {
-        $query = Food::query()->whereNotIn('id', $excludeIds);
+        $baseQuery = FoodRecipe::query()
+            ->leftJoin('foods', 'foods.id', '=', 'food_recipes.food_id')
+            ->whereNotIn('food_recipes.id', $excludeRecipeIds)
+            ->select('food_recipes.*');
 
-        $food = (clone $query)
-            ->where($nutrient, '>', 0)
-            ->orderBy($nutrient, 'desc')
-            ->orderBy('recipe_loves', 'desc')
+        $recipe = (clone $baseQuery)
+            ->whereNotNull('food_recipes.food_id')
+            ->where("foods.{$nutrient}", '>', 0)
+            ->orderByDesc("foods.{$nutrient}")
+            ->orderByDesc('food_recipes.loves')
+            ->with('food')
             ->first();
 
-        if ($food) {
-            return $food;
+        if ($recipe) {
+            return $recipe;
         }
 
-        return $query->orderBy('protein', 'desc')->first();
+        return (clone $baseQuery)
+            ->orderByDesc('food_recipes.loves')
+            ->with('food')
+            ->first();
     }
 
     private function foodToArray(Food $food): array
@@ -547,6 +545,36 @@ class FoodRecommendationService
             'iron'          => $food->iron,
             'calcium'       => $food->calcium,
             'has_recipe'    => !empty($food->steps) || !empty($food->ingredients),
+        ];
+    }
+
+    private function recipeToArray(FoodRecipe $recipe): array
+    {
+        $food = $recipe->food;
+
+        return [
+            'recipe_id' => $recipe->id,
+            'id' => $food?->id,
+            'name' => $recipe->title,
+            'category' => $recipe->category,
+            'image_url' => $food?->image_url,
+            'protein' => $food?->protein,
+            'calories' => $food?->calories,
+            'fat' => $food?->fat,
+            'carbohydrates' => $food?->carbohydrates,
+            'iron' => $food?->iron,
+            'calcium' => $food?->calcium,
+            'has_recipe' => true,
+            'recipe' => [
+                'title' => $recipe->title,
+                'ingredients' => $recipe->ingredients,
+                'steps' => $recipe->steps,
+                'loves' => $recipe->loves,
+                'source_url' => $recipe->source_url,
+                'total_ingredients' => $recipe->total_ingredients,
+                'total_steps' => $recipe->total_steps,
+            ],
+            'has_food_info' => (bool) $recipe->food_id,
         ];
     }
 }

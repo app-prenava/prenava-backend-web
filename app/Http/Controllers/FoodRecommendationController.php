@@ -954,10 +954,11 @@ class FoodRecommendationController extends Controller
     /**
      * POST /api/stunting/ai/prompt-foods
      *
-     * Use Gemini to select foods from nutrition dataset candidates (guardrailed).
+     * Use Gemini to select foods/recipes from dataset candidates (guardrailed).
      * Body:
      * - prompt: string
      * - limit: optional int (default 6, max 10)
+     * - source: optional string (recipes|foods), default recipes
      */
     public function promptFoods(Request $request): JsonResponse
     {
@@ -970,20 +971,59 @@ class FoodRecommendationController extends Controller
             $validated = $request->validate([
                 'prompt' => 'required|string|max:1000',
                 'limit' => 'nullable|integer|min:1|max:10',
+                'source' => 'nullable|in:recipes,foods',
             ]);
 
             $limit = (int) ($validated['limit'] ?? 6);
+            $source = (string) ($validated['source'] ?? 'recipes');
 
-            // Candidates from nutrition foods table (has image+macros) — keep minimal fields
-            $candidates = Food::query()
-                ->select(['id', 'name', 'category', 'protein', 'calories', 'fat', 'carbohydrates', 'image_url'])
-                ->where('protein', '>', 0)
-                ->orderByDesc('protein')
-                ->limit(80)
-                ->get()
-                ->toArray();
+            if ($source === 'recipes') {
+                $candidates = FoodRecipe::query()
+                    ->leftJoin('foods', 'foods.id', '=', 'food_recipes.food_id')
+                    ->select([
+                        'food_recipes.id as id',
+                        'food_recipes.title as name',
+                        'food_recipes.category as category',
+                        'food_recipes.loves as loves',
+                        'food_recipes.food_id as food_id',
+                        'foods.protein as protein',
+                        'foods.calories as calories',
+                        'foods.fat as fat',
+                        'foods.carbohydrates as carbohydrates',
+                        'foods.image_url as image_url',
+                    ])
+                    ->whereIn('food_recipes.category', self::RECEIPT_CATEGORIES)
+                    ->orderByDesc('food_recipes.loves')
+                    ->limit(120)
+                    ->get()
+                    ->map(function ($row) {
+                        return [
+                            'id' => (int) $row->id,
+                            'name' => $row->name,
+                            'category' => $row->category,
+                            'loves' => (int) ($row->loves ?? 0),
+                            'food_id' => $row->food_id ? (int) $row->food_id : null,
+                            'protein' => $row->protein !== null ? (float) $row->protein : null,
+                            'calories' => $row->calories !== null ? (float) $row->calories : null,
+                            'fat' => $row->fat !== null ? (float) $row->fat : null,
+                            'carbohydrates' => $row->carbohydrates !== null ? (float) $row->carbohydrates : null,
+                            'image_url' => $row->image_url,
+                        ];
+                    })
+                    ->values()
+                    ->all();
+            } else {
+                // Candidates from nutrition foods table (has image+macros)
+                $candidates = Food::query()
+                    ->select(['id', 'name', 'category', 'protein', 'calories', 'fat', 'carbohydrates', 'image_url'])
+                    ->where('protein', '>', 0)
+                    ->orderByDesc('protein')
+                    ->limit(80)
+                    ->get()
+                    ->toArray();
+            }
 
-            $cacheKey = 'ai:prompt_foods:' . md5(json_encode([$validated['prompt'], $limit, $user->user_id], JSON_UNESCAPED_UNICODE));
+            $cacheKey = 'ai:prompt_foods:' . md5(json_encode([$validated['prompt'], $limit, $source, $user->user_id], JSON_UNESCAPED_UNICODE));
             $cached = Cache::get($cacheKey);
             if ($cached) {
                 return response()->json(['success' => true, 'cached' => true, 'data' => $cached]);
@@ -999,20 +1039,73 @@ class FoodRecommendationController extends Controller
             $ids = array_values(array_intersect($ids, $candidateIds));
 
             if (empty($ids)) {
-                // Fallback: just return top protein foods
                 $ids = array_slice($candidateIds, 0, $limit);
-                $ai = ['reason' => 'Pilihan ini diprioritaskan untuk membantu memenuhi kebutuhan protein dan energi ibu hamil.'];
+                $ai = [
+                    'reason' => $source === 'recipes'
+                        ? 'Pilihan resep ini diprioritaskan agar menu harian lebih variatif dan mudah diikuti.'
+                        : 'Pilihan ini diprioritaskan untuk membantu memenuhi kebutuhan protein dan energi ibu hamil.',
+                ];
             }
 
-            $foods = Food::query()
-                ->whereIn('id', $ids)
-                ->get(['id', 'name', 'category', 'image_url', 'protein', 'calories', 'fat', 'carbohydrates', 'iron', 'calcium', 'vitamin_a', 'description'])
-                ->values();
+            if ($source === 'recipes') {
+                $recipes = FoodRecipe::query()
+                    ->with(['food:id,name,category,image_url,protein,calories,fat,carbohydrates,iron,calcium,vitamin_a,description'])
+                    ->whereIn('id', $ids)
+                    ->get()
+                    ->sortBy(function (FoodRecipe $recipe) use ($ids) {
+                        return array_search($recipe->id, $ids, true);
+                    })
+                    ->values()
+                    ->map(function (FoodRecipe $recipe) {
+                        return [
+                            'id' => $recipe->id,
+                            'food_id' => $recipe->food_id,
+                            'title' => $recipe->title,
+                            'category' => $recipe->category,
+                            'ingredients' => $recipe->ingredients,
+                            'steps' => $recipe->steps,
+                            'loves' => $recipe->loves,
+                            'source_url' => $recipe->source_url,
+                            'total_ingredients' => $recipe->total_ingredients,
+                            'total_steps' => $recipe->total_steps,
+                            'food' => $recipe->food ? [
+                                'id' => $recipe->food->id,
+                                'name' => $recipe->food->name,
+                                'category' => $recipe->food->category,
+                                'image_url' => $recipe->food->image_url,
+                                'protein' => $recipe->food->protein,
+                                'calories' => $recipe->food->calories,
+                                'fat' => $recipe->food->fat,
+                                'carbohydrates' => $recipe->food->carbohydrates,
+                                'iron' => $recipe->food->iron,
+                                'calcium' => $recipe->food->calcium,
+                                'vitamin_a' => $recipe->food->vitamin_a,
+                                'description' => $recipe->food->description,
+                            ] : null,
+                            'has_food_info' => (bool) $recipe->food_id,
+                        ];
+                    });
 
-            $result = [
-                'foods' => $foods,
-                'reason' => $ai['reason'] ?? null,
-            ];
+                $result = [
+                    'source' => 'recipes',
+                    'recipes' => $recipes,
+                    'reason' => $ai['reason'] ?? null,
+                ];
+            } else {
+                $foods = Food::query()
+                    ->whereIn('id', $ids)
+                    ->get(['id', 'name', 'category', 'image_url', 'protein', 'calories', 'fat', 'carbohydrates', 'iron', 'calcium', 'vitamin_a', 'description'])
+                    ->sortBy(function (Food $food) use ($ids) {
+                        return array_search($food->id, $ids, true);
+                    })
+                    ->values();
+
+                $result = [
+                    'source' => 'foods',
+                    'foods' => $foods,
+                    'reason' => $ai['reason'] ?? null,
+                ];
+            }
 
             Cache::put($cacheKey, $result, now()->addMinutes(30));
 
