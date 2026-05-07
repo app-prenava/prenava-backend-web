@@ -121,7 +121,7 @@ Route::prefix('recomendation/sport')->group(function () {
     Route::delete('/{activity}', [RecomendationSportController::class, 'deleteSportMeta']);
 });
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware('auth:api')->group(function () {
     Route::get('/health/history', [HealthHistoryController::class, 'index']);
     Route::delete('/health/history/{id}', [HealthHistoryController::class, 'destroy']);
 });

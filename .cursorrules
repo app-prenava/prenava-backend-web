@@ -1,0 +1,22 @@
+# Prenava Backend Rules
+Project ini backend Laravel 12 Prenava.
+
+Rules:
+- Clean code wajib.
+- Simple lebih baik daripada over-engineered.
+- Nama variable harus jelas.
+- Jangan spaghetti code.
+- Jangan ubah file tidak relevan.
+- Semua endpoint wajib validasi.
+- Response API harus konsisten.
+- Auth dan ownership data wajib diperhatikan.
+- Jangan hardcode token/password/secret.
+- Jangan expose stack trace ke API response.
+- Jangan bypass auth tanpa alasan.
+
+Workflow:
+1. PM Agent buat plan.
+2. User approve.
+3. Builder Agent implementasi.
+4. Debugger Agent fix error.
+5. QA Agent test flow.
