@@ -141,7 +141,7 @@ class FoodRecommendationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage = min(max((int) $request->query('per_page', 20), 1), 100);
+        $perPage = min(max((int) $request->query('per_page', 20), 1), 2000);
         $search  = $request->query('search');
 
         $query = Food::orderByNutrient('protein', 'desc');
