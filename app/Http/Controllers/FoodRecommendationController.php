@@ -961,65 +961,76 @@ class FoodRecommendationController extends Controller
      */
     public function promptFoods(Request $request): JsonResponse
     {
-        $user = $request->user();
-        if (!$user) {
-            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+            }
+
+            $validated = $request->validate([
+                'prompt' => 'required|string|max:1000',
+                'limit' => 'nullable|integer|min:1|max:10',
+            ]);
+
+            $limit = (int) ($validated['limit'] ?? 6);
+
+            // Candidates from nutrition foods table (has image+macros) — keep minimal fields
+            $candidates = Food::query()
+                ->select(['id', 'name', 'category', 'protein', 'calories', 'fat', 'carbohydrates', 'image_url'])
+                ->where('protein', '>', 0)
+                ->orderByDesc('protein')
+                ->limit(80)
+                ->get()
+                ->toArray();
+
+            $cacheKey = 'ai:prompt_foods:' . md5(json_encode([$validated['prompt'], $limit, $user->user_id], JSON_UNESCAPED_UNICODE));
+            $cached = Cache::get($cacheKey);
+            if ($cached) {
+                return response()->json(['success' => true, 'cached' => true, 'data' => $cached]);
+            }
+
+            $ai = $this->geminiService->pickFoodsFromPrompt($validated['prompt'], $candidates);
+
+            $ids = array_values(array_filter(array_map('intval', $ai['food_ids'] ?? [])));
+            $ids = array_slice(array_unique($ids), 0, $limit);
+
+            // Validate ids against candidate list
+            $candidateIds = array_column($candidates, 'id');
+            $ids = array_values(array_intersect($ids, $candidateIds));
+
+            if (empty($ids)) {
+                // Fallback: just return top protein foods
+                $ids = array_slice($candidateIds, 0, $limit);
+                $ai = ['reason' => 'Pilihan ini diprioritaskan untuk membantu memenuhi kebutuhan protein dan energi ibu hamil.'];
+            }
+
+            $foods = Food::query()
+                ->whereIn('id', $ids)
+                ->get(['id', 'name', 'category', 'image_url', 'protein', 'calories', 'fat', 'carbohydrates', 'iron', 'calcium', 'vitamin_a', 'description'])
+                ->values();
+
+            $result = [
+                'foods' => $foods,
+                'reason' => $ai['reason'] ?? null,
+            ];
+
+            Cache::put($cacheKey, $result, now()->addMinutes(30));
+
+            return response()->json([
+                'success' => true,
+                'cached' => false,
+                'data' => $result,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Stunting prompt-foods failed', [
+                'message' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'AI tidak tersedia sementara. Silakan coba lagi.',
+            ], 503);
         }
-
-        $validated = $request->validate([
-            'prompt' => 'required|string|max:1000',
-            'limit' => 'nullable|integer|min:1|max:10',
-        ]);
-
-        $limit = (int) ($validated['limit'] ?? 6);
-
-        // Candidates from nutrition foods table (has image+macros) — keep minimal fields
-        $candidates = Food::query()
-            ->select(['id', 'name', 'category', 'protein', 'calories', 'fat', 'carbohydrates', 'image_url'])
-            ->where('protein', '>', 0)
-            ->orderByDesc('protein')
-            ->limit(80)
-            ->get()
-            ->toArray();
-
-        $cacheKey = 'ai:prompt_foods:' . md5(json_encode([$validated['prompt'], $limit, $user->user_id], JSON_UNESCAPED_UNICODE));
-        $cached = Cache::get($cacheKey);
-        if ($cached) {
-            return response()->json(['success' => true, 'cached' => true, 'data' => $cached]);
-        }
-
-        $ai = $this->geminiService->pickFoodsFromPrompt($validated['prompt'], $candidates);
-
-        $ids = array_values(array_filter(array_map('intval', $ai['food_ids'] ?? [])));
-        $ids = array_slice(array_unique($ids), 0, $limit);
-
-        // Validate ids against candidate list
-        $candidateIds = array_column($candidates, 'id');
-        $ids = array_values(array_intersect($ids, $candidateIds));
-
-        if (empty($ids)) {
-            // Fallback: just return top protein foods
-            $ids = array_slice($candidateIds, 0, $limit);
-            $ai = ['reason' => 'Pilihan ini diprioritaskan untuk membantu memenuhi kebutuhan protein dan energi ibu hamil.'];
-        }
-
-        $foods = Food::query()
-            ->whereIn('id', $ids)
-            ->get(['id', 'name', 'category', 'image_url', 'protein', 'calories', 'fat', 'carbohydrates', 'iron', 'calcium', 'vitamin_a', 'description'])
-            ->values();
-
-        $result = [
-            'foods' => $foods,
-            'reason' => $ai['reason'] ?? null,
-        ];
-
-        Cache::put($cacheKey, $result, now()->addMinutes(30));
-
-        return response()->json([
-            'success' => true,
-            'cached' => false,
-            'data' => $result,
-        ]);
     }
 
     private function buildAiFeatureSupport(?string $riskLabel): array
