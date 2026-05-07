@@ -293,6 +293,40 @@ class NutritionImportService
         return $stats;
     }
 
+    /**
+     * Import all CSV files from receipt folder to food_recipes table.
+     * Category is inferred from filename pattern: dataset-<category>.csv
+     *
+     * @return array{files: int, imported: int, updated: int, errors: int}
+     */
+    public static function importReceiptDirectoryToTable(string $directory = null): array
+    {
+        $directory = $directory ?? storage_path('app/dataset/receipt');
+
+        if (!is_dir($directory)) {
+            throw new Exception("Directory not found: {$directory}");
+        }
+
+        $files = glob(rtrim($directory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '*.csv') ?: [];
+        if (empty($files)) {
+            throw new Exception("No CSV files found in directory: {$directory}");
+        }
+
+        $summary = ['files' => 0, 'imported' => 0, 'updated' => 0, 'errors' => 0];
+
+        foreach ($files as $filePath) {
+            $categoryFromFilename = self::extractCategoryFromFilename($filePath);
+            $stats = self::importRecipesToTableWithForcedCategory($filePath, $categoryFromFilename);
+
+            $summary['files']++;
+            $summary['imported'] += $stats['imported'];
+            $summary['updated'] += $stats['updated'];
+            $summary['errors'] += $stats['errors'];
+        }
+
+        return $summary;
+    }
+
     private static function parseFloat($value): float
     {
         $cleaned = preg_replace('/[^0-9.\-]/', '', (string) $value);
@@ -367,5 +401,105 @@ class NutritionImportService
 
         $stats['updated'] += $existingCount;
         $stats['imported'] += max(0, count($rows) - $existingCount);
+    }
+
+    /**
+     * Internal helper to import a single recipe CSV while forcing category.
+     *
+     * @return array{imported: int, updated: int, errors: int}
+     */
+    private static function importRecipesToTableWithForcedCategory(string $path, ?string $forcedCategory): array
+    {
+        if (!file_exists($path)) {
+            throw new Exception("CSV file not found: {$path}");
+        }
+
+        $handle = fopen($path, 'r');
+        if (!$handle) {
+            throw new Exception("Cannot open CSV file: {$path}");
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            throw new Exception('CSV file is empty or has no header row.');
+        }
+
+        $header = array_map('trim', $header);
+        $stats = ['imported' => 0, 'updated' => 0, 'errors' => 0];
+        $rows = [];
+        $batchSize = 500;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            try {
+                $data = array_combine($header, $row);
+                if (!$data) {
+                    $stats['errors']++;
+                    continue;
+                }
+
+                $title = self::nullIfEmpty($data['Title'] ?? null);
+                if (!$title) {
+                    $stats['errors']++;
+                    continue;
+                }
+
+                $titleCleaned = self::nullIfEmpty($data['Title Cleaned'] ?? null);
+                $sourceUrl = self::sanitizeUrl($data['URL'] ?? null);
+                $category = $forcedCategory ?: self::nullIfEmpty($data['Category'] ?? null);
+
+                $hashSeed = implode('|', [
+                    self::normalizeName($title),
+                    self::normalizeName((string) ($titleCleaned ?? '')),
+                    self::normalizeName((string) ($category ?? '')),
+                    self::normalizeName((string) ($sourceUrl ?? '')),
+                ]);
+
+                $rows[] = [
+                    'recipe_hash' => hash('sha256', $hashSeed),
+                    'title' => $title,
+                    'title_cleaned' => $titleCleaned,
+                    'ingredients' => self::nullIfEmpty($data['Ingredients'] ?? null),
+                    'steps' => self::nullIfEmpty($data['Steps'] ?? null),
+                    'loves' => self::parseInt($data['Loves'] ?? null),
+                    'source_url' => $sourceUrl,
+                    'category' => $category,
+                    'total_ingredients' => self::parseInt($data['Total Ingredients'] ?? null),
+                    'total_steps' => self::parseInt($data['Total Steps'] ?? null),
+                    'ingredients_cleaned' => self::nullIfEmpty($data['Ingredients Cleaned'] ?? null),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+
+                if (count($rows) >= $batchSize) {
+                    self::upsertRecipeBatch($rows, $stats);
+                    $rows = [];
+                }
+            } catch (Exception $e) {
+                $stats['errors']++;
+                Log::warning('NutritionImport: Receipt import row error', [
+                    'file' => $path,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if (!empty($rows)) {
+            self::upsertRecipeBatch($rows, $stats);
+        }
+
+        fclose($handle);
+
+        return $stats;
+    }
+
+    private static function extractCategoryFromFilename(string $path): ?string
+    {
+        $name = pathinfo($path, PATHINFO_FILENAME); // e.g., dataset-ayam
+        if (preg_match('/^dataset-(.+)$/', $name, $matches)) {
+            return self::normalizeName($matches[1]);
+        }
+
+        return null;
     }
 }

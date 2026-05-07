@@ -8,7 +8,7 @@ use Symfony\Component\Console\Command\Command as SymfonyCommand;
 
 class SyncFoodDataset extends Command
 {
-    protected $signature = 'food:sync-dataset {--with-recipes : Sync Indonesian_Food_Recipes.csv to foods table} {--recipes-table : Import full Indonesian_Food_Recipes.csv to food_recipes table}';
+    protected $signature = 'food:sync-dataset {--with-recipes : Sync Indonesian_Food_Recipes.csv to foods table} {--recipes-table : Import full Indonesian_Food_Recipes.csv to food_recipes table} {--receipt-dir : Import all dataset-*.csv in storage/app/dataset/receipt to food_recipes table}';
     protected $description = 'Import nutrition dataset and optionally sync recipe dataset';
 
     public function handle(): int
@@ -27,6 +27,12 @@ class SyncFoodDataset extends Command
             $this->info('Importing full recipes CSV into food_recipes table ...');
             $tableStats = NutritionImportService::importRecipesToTable();
             $this->line('Recipe table import stats: ' . json_encode($tableStats));
+        }
+
+        if ($this->option('receipt-dir')) {
+            $this->info('Importing receipt directory CSV files into food_recipes table ...');
+            $dirStats = NutritionImportService::importReceiptDirectoryToTable();
+            $this->line('Receipt directory import stats: ' . json_encode($dirStats));
         }
 
         $this->info('Food dataset sync completed.');
