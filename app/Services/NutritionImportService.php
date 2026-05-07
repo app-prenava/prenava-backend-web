@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Food;
+use App\Models\FoodRecipe;
 use Illuminate\Support\Facades\Log;
 use Exception;
 
@@ -201,6 +202,97 @@ class NutritionImportService
         return $stats;
     }
 
+    /**
+     * Import ALL recipes rows from Indonesian_Food_Recipes.csv into food_recipes table.
+     * Uses upsert by deterministic recipe_hash so it is safe to re-run.
+     *
+     * @return array{imported: int, updated: int, errors: int}
+     */
+    public static function importRecipesToTable(string $path = null): array
+    {
+        $path = $path ?? storage_path('app/dataset/Indonesian_Food_Recipes.csv');
+
+        if (!file_exists($path)) {
+            throw new Exception("CSV file not found: {$path}");
+        }
+
+        $handle = fopen($path, 'r');
+        if (!$handle) {
+            throw new Exception("Cannot open CSV file: {$path}");
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            throw new Exception('CSV file is empty or has no header row.');
+        }
+
+        $header = array_map('trim', $header);
+        $stats = ['imported' => 0, 'updated' => 0, 'errors' => 0];
+
+        $rows = [];
+        $batchSize = 500;
+
+        while (($row = fgetcsv($handle)) !== false) {
+            try {
+                $data = array_combine($header, $row);
+                if (!$data) {
+                    $stats['errors']++;
+                    continue;
+                }
+
+                $title = self::nullIfEmpty($data['Title'] ?? null);
+                if (!$title) {
+                    $stats['errors']++;
+                    continue;
+                }
+
+                $titleCleaned = self::nullIfEmpty($data['Title Cleaned'] ?? null);
+                $sourceUrl = self::sanitizeUrl($data['URL'] ?? null);
+                $hashSeed = implode('|', [
+                    self::normalizeName($title),
+                    self::normalizeName((string) ($titleCleaned ?? '')),
+                    self::normalizeName((string) ($data['Category'] ?? '')),
+                    self::normalizeName((string) ($sourceUrl ?? '')),
+                ]);
+
+                $rows[] = [
+                    'recipe_hash' => hash('sha256', $hashSeed),
+                    'title' => $title,
+                    'title_cleaned' => $titleCleaned,
+                    'ingredients' => self::nullIfEmpty($data['Ingredients'] ?? null),
+                    'steps' => self::nullIfEmpty($data['Steps'] ?? null),
+                    'loves' => self::parseInt($data['Loves'] ?? null),
+                    'source_url' => $sourceUrl,
+                    'category' => self::nullIfEmpty($data['Category'] ?? null),
+                    'total_ingredients' => self::parseInt($data['Total Ingredients'] ?? null),
+                    'total_steps' => self::parseInt($data['Total Steps'] ?? null),
+                    'ingredients_cleaned' => self::nullIfEmpty($data['Ingredients Cleaned'] ?? null),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+
+                if (count($rows) >= $batchSize) {
+                    self::upsertRecipeBatch($rows, $stats);
+                    $rows = [];
+                }
+            } catch (Exception $e) {
+                $stats['errors']++;
+                Log::warning('NutritionImport: Recipe import row error', [
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if (!empty($rows)) {
+            self::upsertRecipeBatch($rows, $stats);
+        }
+
+        fclose($handle);
+
+        return $stats;
+    }
+
     private static function parseFloat($value): float
     {
         $cleaned = preg_replace('/[^0-9.\-]/', '', (string) $value);
@@ -248,5 +340,32 @@ class NutritionImportService
     {
         $value = trim((string) $value);
         return $value === '' ? null : $value;
+    }
+
+    private static function upsertRecipeBatch(array $rows, array &$stats): void
+    {
+        $hashes = array_column($rows, 'recipe_hash');
+        $existingCount = FoodRecipe::query()->whereIn('recipe_hash', $hashes)->count();
+
+        FoodRecipe::upsert(
+            $rows,
+            ['recipe_hash'],
+            [
+                'title',
+                'title_cleaned',
+                'ingredients',
+                'steps',
+                'loves',
+                'source_url',
+                'category',
+                'total_ingredients',
+                'total_steps',
+                'ingredients_cleaned',
+                'updated_at',
+            ]
+        );
+
+        $stats['updated'] += $existingCount;
+        $stats['imported'] += max(0, count($rows) - $existingCount);
     }
 }
