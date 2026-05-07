@@ -22,6 +22,18 @@ class FoodRecommendationController extends Controller
     private FoodRecommendationService $recommendationService;
     private GeminiService $geminiService;
 
+    // Receipt dataset categories (storage/app/dataset/receipt)
+    private const RECEIPT_CATEGORIES = [
+        'ayam',
+        'ikan',
+        'kambing',
+        'sapi',
+        'tahu',
+        'telur',
+        'tempe',
+        'udang',
+    ];
+
     public function __construct(
         FoodRecommendationService $recommendationService,
         GeminiService $geminiService
@@ -64,6 +76,36 @@ class FoodRecommendationController extends Controller
             ], 404);
         }
 
+        // Gate: require user preferences first (flow: screening -> questions -> recommendations)
+        $preference = UserFoodPreference::where('user_id', $user->user_id)->first();
+        $hasPreference = $preference && (
+            !empty($preference->budget_level)
+            || !empty($preference->preferred_categories)
+            || !empty($preference->excluded_categories)
+            || !empty($preference->excluded_keywords)
+            || !empty($preference->allergies)
+            || !empty($preference->diet_style)
+            || (bool) $preference->avoid_spicy
+        );
+
+        if (!$hasPreference) {
+            // Return questions payload so FE can show button/flow before recommendations
+            $questions = $this->preferenceQuestions($request)->getData(true);
+
+            return response()->json([
+                'success' => true,
+                'needs_preferences' => true,
+                'message' => 'Isi preferensi makan dulu (alergi, budget, dll) untuk rekomendasi yang lebih tepat.',
+                'data' => [
+                    'prediction_summary' => [
+                        'risk_label'  => $prediction->risk_label,
+                        'probability' => $prediction->probability,
+                    ],
+                    'preference_questions' => $questions['data']['questions'] ?? [],
+                ],
+            ], 200);
+        }
+
         // CACHE HIT — return stored results (but still personalized is handled by service)
         if ($prediction->hasCachedRecommendations()) {
             return response()->json([
@@ -84,7 +126,6 @@ class FoodRecommendationController extends Controller
         // CACHE MISS — generate fresh recommendations
         try {
             $isHighRisk = $prediction->risk_label === 'high_risk';
-            $preference = UserFoodPreference::where('user_id', $user->user_id)->first();
 
             // Step 1: Rule-based food recommendations
             if ($isHighRisk) {
@@ -636,6 +677,7 @@ class FoodRecommendationController extends Controller
         $categories = Cache::remember($cacheKey, now()->addMinutes(60), function () {
             return FoodRecipe::query()
                 ->whereNotNull('category')
+                ->whereIn('category', self::RECEIPT_CATEGORIES)
                 ->selectRaw('category, COUNT(*) as total, SUM(CASE WHEN food_id IS NOT NULL THEN 1 ELSE 0 END) as total_with_food_info')
                 ->groupBy('category')
                 ->orderByDesc('total')
@@ -667,6 +709,7 @@ class FoodRecommendationController extends Controller
         $search = $request->query('search');
         $hasFoodInfo = $request->query('has_food_info');
         $sort = $request->query('sort', 'popular'); // popular|newest
+        $scope = $request->query('scope', 'receipt'); // receipt|all
 
         // Join foods to expose image + nutrition for FE list cards (fast, select-minimal)
         $query = FoodRecipe::query()
@@ -690,6 +733,7 @@ class FoodRecommendationController extends Controller
                 'foods.iron as iron',
                 'foods.calcium as calcium',
             ])
+            ->when($scope !== 'all', fn ($q) => $q->whereIn('food_recipes.category', self::RECEIPT_CATEGORIES))
             ->when($hasFoodInfo !== null, function ($q) use ($hasFoodInfo) {
                 $truthy = in_array((string) $hasFoodInfo, ['1', 'true', 'yes'], true);
                 return $truthy
@@ -899,6 +943,77 @@ class FoodRecommendationController extends Controller
         }
 
         Cache::put($cacheKey, $result, now()->addHours(12));
+
+        return response()->json([
+            'success' => true,
+            'cached' => false,
+            'data' => $result,
+        ]);
+    }
+
+    /**
+     * POST /api/stunting/ai/prompt-foods
+     *
+     * Use Gemini to select foods from nutrition dataset candidates (guardrailed).
+     * Body:
+     * - prompt: string
+     * - limit: optional int (default 6, max 10)
+     */
+    public function promptFoods(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $validated = $request->validate([
+            'prompt' => 'required|string|max:1000',
+            'limit' => 'nullable|integer|min:1|max:10',
+        ]);
+
+        $limit = (int) ($validated['limit'] ?? 6);
+
+        // Candidates from nutrition foods table (has image+macros) — keep minimal fields
+        $candidates = Food::query()
+            ->select(['id', 'name', 'category', 'protein', 'calories', 'fat', 'carbohydrates', 'image_url'])
+            ->where('protein', '>', 0)
+            ->orderByDesc('protein')
+            ->limit(80)
+            ->get()
+            ->toArray();
+
+        $cacheKey = 'ai:prompt_foods:' . md5(json_encode([$validated['prompt'], $limit, $user->user_id], JSON_UNESCAPED_UNICODE));
+        $cached = Cache::get($cacheKey);
+        if ($cached) {
+            return response()->json(['success' => true, 'cached' => true, 'data' => $cached]);
+        }
+
+        $ai = $this->geminiService->pickFoodsFromPrompt($validated['prompt'], $candidates);
+
+        $ids = array_values(array_filter(array_map('intval', $ai['food_ids'] ?? [])));
+        $ids = array_slice(array_unique($ids), 0, $limit);
+
+        // Validate ids against candidate list
+        $candidateIds = array_column($candidates, 'id');
+        $ids = array_values(array_intersect($ids, $candidateIds));
+
+        if (empty($ids)) {
+            // Fallback: just return top protein foods
+            $ids = array_slice($candidateIds, 0, $limit);
+            $ai = ['reason' => 'Pilihan ini diprioritaskan untuk membantu memenuhi kebutuhan protein dan energi ibu hamil.'];
+        }
+
+        $foods = Food::query()
+            ->whereIn('id', $ids)
+            ->get(['id', 'name', 'category', 'image_url', 'protein', 'calories', 'fat', 'carbohydrates', 'iron', 'calcium', 'vitamin_a', 'description'])
+            ->values();
+
+        $result = [
+            'foods' => $foods,
+            'reason' => $ai['reason'] ?? null,
+        ];
+
+        Cache::put($cacheKey, $result, now()->addMinutes(30));
 
         return response()->json([
             'success' => true,

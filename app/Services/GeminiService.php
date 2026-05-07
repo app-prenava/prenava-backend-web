@@ -153,6 +153,42 @@ PROMPT;
     }
 
     /**
+     * Pick matching foods from a candidate list based on user prompt.
+     *
+     * @param string $userPrompt Natural language preference prompt
+     * @param array $candidates  Array of foods with id+name+macros
+     * @return array|null { "food_ids": [1,2,3], "reason": "..." }
+     */
+    public function pickFoodsFromPrompt(string $userPrompt, array $candidates): ?array
+    {
+        $cand = json_encode($candidates, JSON_UNESCAPED_UNICODE);
+        $userPrompt = trim($userPrompt);
+
+        $prompt = <<<PROMPT
+Kamu adalah ahli gizi prenatal. Pilih makanan yang paling cocok dari daftar kandidat berdasarkan prompt user.
+
+USER_PROMPT:
+{$userPrompt}
+
+KANDIDAT (JSON):
+{$cand}
+
+Aturan keras:
+- Hanya boleh memilih dari kandidat yang diberikan (berdasarkan id).
+- Balas JSON murni tanpa markdown.
+- Maksimal pilih 10 id.
+
+Format respons:
+{
+  "food_ids": [1,2,3],
+  "reason": "1 paragraf singkat kenapa pilihan ini cocok."
+}
+PROMPT;
+
+        return $this->callGemini($prompt);
+    }
+
+    /**
      * Call Gemini API and parse the JSON response.
      *
      * @return array|null Returns null on any failure

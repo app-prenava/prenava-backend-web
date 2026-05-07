@@ -426,6 +426,7 @@ Route::prefix('stunting')->middleware(['auth:api'])->group(function () {
     // AI support (safe fallback on failure)
     Route::post('/ai/nutrition-paragraph', [FoodRecommendationController::class, 'nutritionParagraph']);
     Route::get('/ai/preference-questions', [FoodRecommendationController::class, 'preferenceQuestions']);
+    Route::post('/ai/prompt-foods',        [FoodRecommendationController::class, 'promptFoods']);
 });
 
 // Public: food catalog (no auth required)
