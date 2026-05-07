@@ -431,7 +431,8 @@ Route::prefix('stunting')->middleware(['auth:api'])->group(function () {
 // Public: food catalog (no auth required)
 Route::get('/stunting/foods',      [FoodRecommendationController::class, 'index']);
 Route::get('/stunting/foods/{id}', [FoodRecommendationController::class, 'show']);
-Route::get('/stunting/recipes/{food_id}', [FoodRecommendationController::class, 'recipe']);
 Route::get('/stunting/recipes', [FoodRecommendationController::class, 'recipesIndex']);
 Route::get('/stunting/recipes/categories', [FoodRecommendationController::class, 'recipeCategories']);
+Route::get('/stunting/recipes/{food_id}', [FoodRecommendationController::class, 'recipe'])
+    ->whereNumber('food_id');
 
