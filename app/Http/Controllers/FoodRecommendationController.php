@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\FoodResource;
 use App\Models\Food;
+use App\Models\MealPlan;
+use App\Models\MealPlanItem;
 use App\Models\StuntingPrediction;
 use App\Services\FoodRecommendationService;
 use App\Services\GeminiService;
@@ -71,6 +73,7 @@ class FoodRecommendationController extends Controller
                     ],
                     'recommended_foods' => $prediction->cached_recommendations,
                     'ai_support'        => $prediction->cached_ai_support,
+                    'feature_support'   => $this->buildAiFeatureSupport($prediction->risk_label),
                 ],
             ]);
         }
@@ -118,6 +121,7 @@ class FoodRecommendationController extends Controller
                     ],
                     'recommended_foods' => $foods,
                     'ai_support'        => $aiSupport,
+                    'feature_support'   => $this->buildAiFeatureSupport($prediction->risk_label),
                 ],
             ]);
 
@@ -284,5 +288,315 @@ class FoodRecommendationController extends Controller
             'success' => true,
             'data'    => $result,
         ]);
+    }
+
+    /**
+     * POST /api/stunting/meal-plans/generate
+     *
+     * Deterministic rule-based daily schedule from prediction factors.
+     */
+    public function generateDailyPlan(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 401);
+        }
+
+        $request->validate([
+            'prediction_id' => 'required|integer',
+        ]);
+
+        $prediction = StuntingPrediction::forUser($user->user_id)
+            ->where('id', $request->integer('prediction_id'))
+            ->successful()
+            ->first();
+
+        if (!$prediction) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data prediksi tidak ditemukan.',
+            ], 404);
+        }
+
+        $plan = $this->recommendationService->generateDailyMealPlan($prediction);
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'prediction_summary' => [
+                    'risk_label'  => $prediction->risk_label,
+                    'probability' => $prediction->probability,
+                ],
+                'daily_plan' => $plan,
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/stunting/meal-plans
+     *
+     * Persist a weekly plan (default 7 days) for authenticated user.
+     */
+    public function createWeeklyPlan(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $request->validate([
+            'prediction_id' => 'required|integer',
+            'days'          => 'nullable|integer|min:1|max:14',
+        ]);
+
+        $prediction = StuntingPrediction::forUser($user->user_id)
+            ->where('id', $request->integer('prediction_id'))
+            ->successful()
+            ->first();
+
+        if (!$prediction) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data prediksi tidak ditemukan.',
+            ], 404);
+        }
+
+        $mealPlan = $this->recommendationService->createWeeklyMealPlan(
+            $prediction,
+            $user->user_id,
+            (int) $request->input('days', 7)
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->recommendationService->formatMealPlan($mealPlan),
+        ]);
+    }
+
+    /**
+     * GET /api/stunting/meal-plans/current
+     */
+    public function currentPlan(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $mealPlan = $this->recommendationService->getActiveMealPlan($user->user_id);
+        if (!$mealPlan) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Meal plan aktif belum tersedia.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->recommendationService->formatMealPlan($mealPlan),
+        ]);
+    }
+
+    /**
+     * POST /api/stunting/meal-plans/{id}/refresh-day
+     */
+    public function refreshPlanDay(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $request->validate([
+            'day_index' => 'required|integer|min:0|max:13',
+        ]);
+
+        $mealPlan = MealPlan::where('id', $id)
+            ->where('user_id', $user->user_id)
+            ->with(['items', 'prediction'])
+            ->first();
+
+        if (!$mealPlan) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Meal plan tidak ditemukan.',
+            ], 404);
+        }
+
+        $updated = $this->recommendationService->refreshPlanDay(
+            $mealPlan,
+            $request->integer('day_index')
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Menu harian berhasil diperbarui.',
+            'data' => $this->recommendationService->formatMealPlan($updated),
+        ]);
+    }
+
+    /**
+     * GET /api/stunting/meal-plans/history
+     */
+    public function planHistory(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $perPage = (int) $request->query('per_page', 10);
+        $paginated = $this->recommendationService->getMealPlanHistory($user->user_id, $perPage);
+
+        return response()->json([
+            'success' => true,
+            'data' => collect($paginated->items())
+                ->map(fn (MealPlan $plan) => $this->recommendationService->formatMealPlan($plan))
+                ->values(),
+            'meta' => [
+                'current_page' => $paginated->currentPage(),
+                'last_page' => $paginated->lastPage(),
+                'per_page' => $paginated->perPage(),
+                'total' => $paginated->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/stunting/meal-plans/items/{item_id}/completion
+     */
+    public function setMealItemCompletion(Request $request, int $itemId): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $request->validate([
+            'is_completed' => 'required|boolean',
+        ]);
+
+        $item = MealPlanItem::query()
+            ->where('id', $itemId)
+            ->whereHas('mealPlan', fn ($q) => $q->where('user_id', $user->user_id))
+            ->with('mealPlan.items')
+            ->first();
+
+        if (!$item) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Meal item tidak ditemukan.',
+            ], 404);
+        }
+
+        $this->recommendationService->updateMealItemCompletion(
+            $item,
+            (bool) $request->boolean('is_completed')
+        );
+
+        $mealPlan = $item->mealPlan->fresh('items');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Status meal item berhasil diperbarui.',
+            'data' => $this->recommendationService->formatMealPlan($mealPlan),
+        ]);
+    }
+
+    /**
+     * GET /api/stunting/meal-plans/{id}/progress
+     */
+    public function mealPlanProgress(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+        }
+
+        $mealPlan = MealPlan::query()
+            ->where('id', $id)
+            ->where('user_id', $user->user_id)
+            ->with('items')
+            ->first();
+
+        if (!$mealPlan) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Meal plan tidak ditemukan.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'meal_plan_id' => $mealPlan->id,
+                'is_active' => $mealPlan->is_active,
+                'start_date' => optional($mealPlan->start_date)->toDateString(),
+                'end_date' => optional($mealPlan->end_date)->toDateString(),
+                'overall' => [
+                    'total_items' => (int) $mealPlan->items->count(),
+                    'completed_items' => (int) $mealPlan->items->where('is_completed', true)->count(),
+                ],
+                'daily_progress' => $this->recommendationService->buildDailyProgress($mealPlan),
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/stunting/recipes/{food_id}
+     *
+     * Recipe detail from local dataset sync.
+     */
+    public function recipe(int $foodId): JsonResponse
+    {
+        $food = Food::find($foodId);
+
+        if (!$food) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Makanan tidak ditemukan.',
+            ], 404);
+        }
+
+        if (empty($food->ingredients) && empty($food->steps)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Resep untuk makanan ini belum tersedia.',
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'food_id'    => $food->id,
+                'food_name'  => $food->name,
+                'ingredients' => $food->ingredients,
+                'steps'       => $food->steps,
+                'source_url'  => $food->source_url,
+                'category'    => $food->recipe_category,
+                'loves'       => $food->recipe_loves,
+            ],
+        ]);
+    }
+
+    private function buildAiFeatureSupport(?string $riskLabel): array
+    {
+        return [
+            'enabled' => true,
+            'mode' => 'ai_assisted_with_rule_guardrails',
+            'capabilities' => [
+                'reranking_recommendations',
+                'meal_plan_explanation',
+                'recipe_guidance_language_simplification',
+            ],
+            'fallback_behavior' => 'rule_based_only',
+            'context' => $riskLabel === 'high_risk'
+                ? 'AI dipakai untuk memperkaya edukasi dan penjelasan prioritas nutrisi.'
+                : 'AI dipakai untuk variasi menu sehat dengan prioritas nutrisi seimbang.',
+        ];
     }
 }

@@ -112,6 +112,95 @@ class NutritionImportService
         return $stats;
     }
 
+    /**
+     * Sync recipe dataset into existing foods table.
+     * Match strategy:
+     * - exact normalized name
+     * - fallback contains-match when exact is not found
+     *
+     * @return array{synced: int, skipped: int, unmatched: int, errors: int}
+     */
+    public static function syncRecipesFromCsv(string $path = null): array
+    {
+        $path = $path ?? storage_path('app/dataset/Indonesian_Food_Recipes.csv');
+
+        if (!file_exists($path)) {
+            throw new Exception("CSV file not found: {$path}");
+        }
+
+        $handle = fopen($path, 'r');
+        if (!$handle) {
+            throw new Exception("Cannot open CSV file: {$path}");
+        }
+
+        $header = fgetcsv($handle);
+        if (!$header) {
+            fclose($handle);
+            throw new Exception('CSV file is empty or has no header row.');
+        }
+
+        $header = array_map('trim', $header);
+        $stats = ['synced' => 0, 'skipped' => 0, 'unmatched' => 0, 'errors' => 0];
+
+        // preload normalized name map to reduce query overhead
+        $foodsByName = Food::select('id', 'name')
+            ->get()
+            ->mapWithKeys(fn (Food $food) => [self::normalizeName($food->name) => $food->id])
+            ->toArray();
+
+        while (($row = fgetcsv($handle)) !== false) {
+            try {
+                $data = array_combine($header, $row);
+                if (!$data) {
+                    $stats['errors']++;
+                    continue;
+                }
+
+                $title = trim((string) ($data['Title'] ?? ''));
+                if ($title === '') {
+                    $stats['skipped']++;
+                    continue;
+                }
+
+                $normalizedTitle = self::normalizeName($data['Title Cleaned'] ?? $title);
+                $foodId = $foodsByName[$normalizedTitle] ?? null;
+
+                if (!$foodId) {
+                    $foodId = Food::query()
+                        ->whereRaw('LOWER(name) LIKE ?', ['%' . $normalizedTitle . '%'])
+                        ->value('id');
+                }
+
+                if (!$foodId) {
+                    $stats['unmatched']++;
+                    continue;
+                }
+
+                Food::where('id', $foodId)->update([
+                    'ingredients'       => self::nullIfEmpty($data['Ingredients'] ?? null),
+                    'steps'             => self::nullIfEmpty($data['Steps'] ?? null),
+                    'source_url'        => self::sanitizeUrl($data['URL'] ?? null),
+                    'recipe_category'   => self::nullIfEmpty($data['Category'] ?? null),
+                    'recipe_loves'      => self::parseInt($data['Loves'] ?? null),
+                    'total_ingredients' => self::parseInt($data['Total Ingredients'] ?? null),
+                    'total_steps'       => self::parseInt($data['Total Steps'] ?? null),
+                    'recipe_synced_at'  => now(),
+                ]);
+
+                $stats['synced']++;
+            } catch (Exception $e) {
+                $stats['errors']++;
+                Log::warning('NutritionImport: Recipe row parse error', [
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        fclose($handle);
+
+        return $stats;
+    }
+
     private static function parseFloat($value): float
     {
         $cleaned = preg_replace('/[^0-9.\-]/', '', (string) $value);
@@ -131,5 +220,33 @@ class NutritionImportService
         }
 
         return null;
+    }
+
+    private static function parseInt($value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $cleaned = preg_replace('/[^0-9]/', '', (string) $value);
+        if ($cleaned === '') {
+            return null;
+        }
+
+        return (int) $cleaned;
+    }
+
+    private static function normalizeName(?string $value): string
+    {
+        $value = mb_strtolower(trim((string) $value));
+        $value = preg_replace('/[^a-z0-9\s]/', ' ', $value);
+        $value = preg_replace('/\s+/', ' ', $value);
+        return trim((string) $value);
+    }
+
+    private static function nullIfEmpty($value): ?string
+    {
+        $value = trim((string) $value);
+        return $value === '' ? null : $value;
     }
 }

@@ -410,9 +410,17 @@ Route::prefix('stunting')->middleware(['auth:api'])->group(function () {
     // Gemini AI educational endpoints
     Route::post('/gemini/cooking-guide', [FoodRecommendationController::class, 'cookingGuide']);
     Route::post('/gemini/meal-plan',     [FoodRecommendationController::class, 'mealPlan']);
+    Route::post('/meal-plans/generate',  [FoodRecommendationController::class, 'generateDailyPlan']);
+    Route::post('/meal-plans',           [FoodRecommendationController::class, 'createWeeklyPlan']);
+    Route::get('/meal-plans/current',    [FoodRecommendationController::class, 'currentPlan']);
+    Route::get('/meal-plans/history',    [FoodRecommendationController::class, 'planHistory']);
+    Route::post('/meal-plans/{id}/refresh-day', [FoodRecommendationController::class, 'refreshPlanDay']);
+    Route::get('/meal-plans/{id}/progress', [FoodRecommendationController::class, 'mealPlanProgress']);
+    Route::post('/meal-plans/items/{item_id}/completion', [FoodRecommendationController::class, 'setMealItemCompletion']);
 });
 
 // Public: food catalog (no auth required)
 Route::get('/stunting/foods',      [FoodRecommendationController::class, 'index']);
 Route::get('/stunting/foods/{id}', [FoodRecommendationController::class, 'show']);
+Route::get('/stunting/recipes/{food_id}', [FoodRecommendationController::class, 'recipe']);
 

@@ -3,11 +3,16 @@
 namespace App\Services;
 
 use App\Models\Food;
+use App\Models\MealPlan;
+use App\Models\MealPlanItem;
 use App\Models\StuntingPrediction;
-use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class FoodRecommendationService
 {
+    private const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'];
+
     /**
      * SHAP factor → nutrient priority mapping.
      * Each factor maps to an ordered list of nutrients to prioritize.
@@ -88,26 +93,15 @@ class FoodRecommendationService
     {
         $shapFactors = $this->extractShapFactors($prediction);
         $priorities  = $this->determineNutrientPriorities($shapFactors);
-        $primarySort = $priorities[0] ?? 'protein';
-
-        // Query foods sorted by the top nutrient priority
-        $foods = Food::orderByNutrient($primarySort, 'desc')
-            ->where($primarySort, '>', 0)
-            ->limit($limit)
-            ->get();
+        $foods       = $this->pickDiverseFoods($priorities, $limit);
 
         $reason = $this->buildReason($shapFactors);
 
-        $formattedFoods = $foods->map(fn (Food $food) => [
-            'id'        => $food->id,
-            'name'      => $food->name,
-            'image_url' => $food->image_url,
-            'protein'   => $food->protein,
-            'calories'  => $food->calories,
-            'fat'       => $food->fat,
-            'carbohydrates' => $food->carbohydrates,
-            'reason'    => $reason,
-        ])->toArray();
+        $formattedFoods = $foods->map(function (Food $food) use ($reason) {
+            $item = $this->foodToArray($food);
+            $item['reason'] = $reason;
+            return $item;
+        })->toArray();
 
         return [
             'foods'              => $formattedFoods,
@@ -121,21 +115,252 @@ class FoodRecommendationService
      */
     public function recommendLowRisk(int $limit = 3): array
     {
-        $foods = Food::orderByNutrient('protein', 'desc')
-            ->where('protein', '>', 0)
-            ->limit($limit)
-            ->get();
+        $foods = $this->pickDiverseFoods(['protein', 'calories'], $limit);
 
-        return $foods->map(fn (Food $food) => [
-            'id'        => $food->id,
-            'name'      => $food->name,
-            'image_url' => $food->image_url,
-            'protein'   => $food->protein,
-            'calories'  => $food->calories,
-            'fat'       => $food->fat,
-            'carbohydrates' => $food->carbohydrates,
-            'reason'    => 'Makanan bergizi untuk mendukung kehamilan sehat',
-        ])->toArray();
+        return $foods->map(function (Food $food) {
+            $item = $this->foodToArray($food);
+            $item['reason'] = 'Makanan bergizi untuk mendukung kehamilan sehat';
+            return $item;
+        })->toArray();
+    }
+
+    /**
+     * Generate a one-day menu schedule using weighted nutrient priorities.
+     *
+     * @return array{targets: array, meals: array, notes: array}
+     */
+    public function generateDailyMealPlan(StuntingPrediction $prediction): array
+    {
+        $shapFactors = $this->extractShapFactors($prediction);
+        $priorities  = $this->determineNutrientPriorities($shapFactors);
+        $riskLabel   = $prediction->risk_label ?? 'low_risk';
+
+        $targets = $riskLabel === 'high_risk'
+            ? ['calories' => 2200, 'protein' => 75, 'iron' => 27, 'calcium' => 1000]
+            : ['calories' => 2000, 'protein' => 65, 'iron' => 24, 'calcium' => 900];
+
+        $usedIds = [];
+        $meals = [];
+
+        foreach (self::MEAL_SLOTS as $slot) {
+            $nutrient = $this->slotNutrient($slot, $priorities);
+            $food = Food::query()
+                ->whereNotIn('id', $usedIds)
+                ->where($nutrient, '>', 0)
+                ->orderBy($nutrient, 'desc')
+                ->orderBy('recipe_loves', 'desc')
+                ->first();
+
+            if (!$food) {
+                $food = Food::query()
+                    ->whereNotIn('id', $usedIds)
+                    ->orderBy('protein', 'desc')
+                    ->first();
+            }
+
+            if (!$food) {
+                continue;
+            }
+
+            $usedIds[] = $food->id;
+
+            $meals[] = [
+                'slot' => $slot,
+                'focus_nutrient' => $nutrient,
+                'food' => $this->foodToArray($food),
+            ];
+        }
+
+        return [
+            'targets' => $targets,
+            'meals'   => $meals,
+            'notes'   => [
+                'Utamakan variasi sumber protein hewani dan nabati.',
+                'Gunakan metode masak rebus, kukus, atau tumis ringan untuk menjaga nutrisi.',
+            ],
+        ];
+    }
+
+    public function createWeeklyMealPlan(StuntingPrediction $prediction, int $userId, int $days = 7): MealPlan
+    {
+        $days = max(1, min(14, $days));
+        $shapFactors = $this->extractShapFactors($prediction);
+        $priorities = $this->determineNutrientPriorities($shapFactors);
+        $targets = $this->resolveTargets($prediction->risk_label ?? 'low_risk');
+
+        return DB::transaction(function () use ($prediction, $userId, $days, $priorities, $targets) {
+            MealPlan::where('user_id', $userId)->where('is_active', true)->update(['is_active' => false]);
+
+            $start = Carbon::today();
+            $end = (clone $start)->addDays($days - 1);
+
+            $mealPlan = MealPlan::create([
+                'user_id' => $userId,
+                'stunting_prediction_id' => $prediction->id,
+                'start_date' => $start->toDateString(),
+                'end_date' => $end->toDateString(),
+                'targets' => $targets,
+                'notes' => [
+                    'Variasikan sumber protein hewani dan nabati setiap hari.',
+                    'Batasi pengulangan menu yang sama agar user tidak bosan.',
+                ],
+                'is_active' => true,
+            ]);
+
+            $usedFoodIds = [];
+            for ($dayIndex = 0; $dayIndex < $days; $dayIndex++) {
+                foreach (self::MEAL_SLOTS as $slot) {
+                    $nutrient = $this->slotNutrient($slot, $priorities);
+                    $food = $this->pickFoodForSlot($nutrient, $usedFoodIds);
+
+                    if (!$food) {
+                        continue;
+                    }
+
+                    $usedFoodIds[] = $food->id;
+
+                    MealPlanItem::create([
+                        'meal_plan_id' => $mealPlan->id,
+                        'food_id' => $food->id,
+                        'day_index' => $dayIndex,
+                        'slot' => $slot,
+                        'focus_nutrient' => $nutrient,
+                        'food_snapshot' => $this->foodToArray($food),
+                    ]);
+                }
+            }
+
+            return $mealPlan->load('items');
+        });
+    }
+
+    public function getActiveMealPlan(int $userId): ?MealPlan
+    {
+        return MealPlan::query()
+            ->where('user_id', $userId)
+            ->where('is_active', true)
+            ->whereDate('end_date', '>=', Carbon::today()->toDateString())
+            ->latest('id')
+            ->with('items')
+            ->first();
+    }
+
+    public function getMealPlanHistory(int $userId, int $limit = 10)
+    {
+        $limit = max(1, min(50, $limit));
+
+        return MealPlan::query()
+            ->where('user_id', $userId)
+            ->with('items')
+            ->orderByDesc('id')
+            ->paginate($limit);
+    }
+
+    public function refreshPlanDay(MealPlan $mealPlan, int $dayIndex): MealPlan
+    {
+        $dayIndex = max(0, min(13, $dayIndex));
+        $prediction = $mealPlan->prediction;
+        $priorities = $this->determineNutrientPriorities($this->extractShapFactors($prediction));
+
+        return DB::transaction(function () use ($mealPlan, $dayIndex, $priorities) {
+            $keepFoodIds = $mealPlan->items()
+                ->where('day_index', '!=', $dayIndex)
+                ->pluck('food_id')
+                ->filter()
+                ->values()
+                ->all();
+
+            $mealPlan->items()->where('day_index', $dayIndex)->delete();
+
+            foreach (self::MEAL_SLOTS as $slot) {
+                $nutrient = $this->slotNutrient($slot, $priorities);
+                $food = $this->pickFoodForSlot($nutrient, $keepFoodIds);
+
+                if (!$food) {
+                    continue;
+                }
+
+                $keepFoodIds[] = $food->id;
+
+                MealPlanItem::create([
+                    'meal_plan_id' => $mealPlan->id,
+                    'food_id' => $food->id,
+                    'day_index' => $dayIndex,
+                    'slot' => $slot,
+                    'focus_nutrient' => $nutrient,
+                    'food_snapshot' => $this->foodToArray($food),
+                ]);
+            }
+
+            return $mealPlan->load('items');
+        });
+    }
+
+    public function formatMealPlan(MealPlan $mealPlan): array
+    {
+        $days = [];
+        foreach ($mealPlan->items as $item) {
+            $days[$item->day_index][] = [
+                'item_id' => $item->id,
+                'slot' => $item->slot,
+                'focus_nutrient' => $item->focus_nutrient,
+                'food' => $item->food_snapshot,
+                'is_completed' => $item->is_completed,
+                'completed_at' => optional($item->completed_at)->toIso8601String(),
+            ];
+        }
+
+        ksort($days);
+
+        return [
+            'id' => $mealPlan->id,
+            'prediction_id' => $mealPlan->stunting_prediction_id,
+            'start_date' => optional($mealPlan->start_date)->toDateString(),
+            'end_date' => optional($mealPlan->end_date)->toDateString(),
+            'targets' => $mealPlan->targets,
+            'notes' => $mealPlan->notes,
+            'is_active' => $mealPlan->is_active,
+            'completion_summary' => [
+                'total_items' => (int) $mealPlan->items->count(),
+                'completed_items' => (int) $mealPlan->items->where('is_completed', true)->count(),
+            ],
+            'days' => array_map(fn ($meals, $index) => [
+                'day_index' => (int) $index,
+                'meals' => $meals,
+            ], $days, array_keys($days)),
+        ];
+    }
+
+    public function updateMealItemCompletion(MealPlanItem $item, bool $isCompleted): MealPlanItem
+    {
+        $item->is_completed = $isCompleted;
+        $item->completed_at = $isCompleted ? now() : null;
+        $item->save();
+
+        return $item;
+    }
+
+    public function buildDailyProgress(MealPlan $mealPlan): array
+    {
+        $progress = [];
+
+        foreach ($mealPlan->items->groupBy('day_index') as $dayIndex => $items) {
+            $total = $items->count();
+            $completed = $items->where('is_completed', true)->count();
+            $percentage = $total > 0 ? (int) round(($completed / $total) * 100) : 0;
+
+            $progress[] = [
+                'day_index' => (int) $dayIndex,
+                'total_items' => $total,
+                'completed_items' => $completed,
+                'completion_percentage' => $percentage,
+                'is_day_completed' => $total > 0 && $completed === $total,
+            ];
+        }
+
+        usort($progress, fn ($a, $b) => $a['day_index'] <=> $b['day_index']);
+
+        return $progress;
     }
 
     /**
@@ -208,5 +433,95 @@ class FoodRecommendationService
         }
 
         return $labels;
+    }
+
+    private function pickDiverseFoods(array $priorities, int $limit)
+    {
+        $selected = collect();
+        $usedCategories = [];
+
+        foreach ($priorities as $nutrient) {
+            if ($selected->count() >= $limit) {
+                break;
+            }
+
+            $candidate = Food::query()
+                ->whereNotIn('id', $selected->pluck('id')->all())
+                ->where($nutrient, '>', 0)
+                ->when(!empty($usedCategories), fn ($q) => $q->whereNotIn('category', $usedCategories))
+                ->orderBy($nutrient, 'desc')
+                ->orderBy('recipe_loves', 'desc')
+                ->first();
+
+            if ($candidate) {
+                $selected->push($candidate);
+                if (!empty($candidate->category)) {
+                    $usedCategories[] = $candidate->category;
+                }
+            }
+        }
+
+        if ($selected->count() < $limit) {
+            $fallback = Food::query()
+                ->whereNotIn('id', $selected->pluck('id')->all())
+                ->orderBy('protein', 'desc')
+                ->limit($limit - $selected->count())
+                ->get();
+
+            $selected = $selected->concat($fallback);
+        }
+
+        return $selected->take($limit);
+    }
+
+    private function slotNutrient(string $slot, array $priorities): string
+    {
+        return match ($slot) {
+            'breakfast' => $priorities[0] ?? 'calories',
+            'lunch'     => $priorities[1] ?? $priorities[0] ?? 'protein',
+            'dinner'    => $priorities[2] ?? 'protein',
+            default     => 'calories',
+        };
+    }
+
+    private function resolveTargets(string $riskLabel): array
+    {
+        return $riskLabel === 'high_risk'
+            ? ['calories' => 2200, 'protein' => 75, 'iron' => 27, 'calcium' => 1000]
+            : ['calories' => 2000, 'protein' => 65, 'iron' => 24, 'calcium' => 900];
+    }
+
+    private function pickFoodForSlot(string $nutrient, array $excludeIds): ?Food
+    {
+        $query = Food::query()->whereNotIn('id', $excludeIds);
+
+        $food = (clone $query)
+            ->where($nutrient, '>', 0)
+            ->orderBy($nutrient, 'desc')
+            ->orderBy('recipe_loves', 'desc')
+            ->first();
+
+        if ($food) {
+            return $food;
+        }
+
+        return $query->orderBy('protein', 'desc')->first();
+    }
+
+    private function foodToArray(Food $food): array
+    {
+        return [
+            'id'            => $food->id,
+            'name'          => $food->name,
+            'category'      => $food->category,
+            'image_url'     => $food->image_url,
+            'protein'       => $food->protein,
+            'calories'      => $food->calories,
+            'fat'           => $food->fat,
+            'carbohydrates' => $food->carbohydrates,
+            'iron'          => $food->iron,
+            'calcium'       => $food->calcium,
+            'has_recipe'    => !empty($food->steps) || !empty($food->ingredients),
+        ];
     }
 }

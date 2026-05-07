@@ -20,6 +20,14 @@ class Food extends Model
         'fat',
         'image_url',
         'description',
+        'ingredients',
+        'steps',
+        'source_url',
+        'recipe_category',
+        'recipe_loves',
+        'total_ingredients',
+        'total_steps',
+        'recipe_synced_at',
     ];
 
     protected $casts = [
@@ -30,6 +38,10 @@ class Food extends Model
         'calories'      => 'float',
         'carbohydrates' => 'float',
         'fat'           => 'float',
+        'recipe_loves' => 'integer',
+        'total_ingredients' => 'integer',
+        'total_steps' => 'integer',
+        'recipe_synced_at' => 'datetime',
     ];
 
     // ─── Scopes ───────────────────────────────────────────
