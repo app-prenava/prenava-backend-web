@@ -327,6 +327,77 @@ class NutritionImportService
         return $summary;
     }
 
+    /**
+     * Link food_recipes rows to foods using name similarity scoring.
+     *
+     * @return array{linked: int, skipped: int, total_recipes: int}
+     */
+    public static function linkRecipesToFoods(int $minScore = 60): array
+    {
+        $foods = Food::query()->select('id', 'name')->get()->map(function (Food $food) {
+            $normalized = self::normalizeName($food->name);
+            return [
+                'id' => $food->id,
+                'name' => $food->name,
+                'normalized' => $normalized,
+                'tokens' => self::tokenize($normalized),
+            ];
+        })->values();
+
+        if ($foods->isEmpty()) {
+            return ['linked' => 0, 'skipped' => 0, 'total_recipes' => 0];
+        }
+
+        $linked = 0;
+        $skipped = 0;
+        $total = 0;
+
+        FoodRecipe::query()->select('id', 'title', 'title_cleaned', 'food_id')->chunkById(500, function ($recipes) use (&$linked, &$skipped, &$total, $foods, $minScore) {
+            foreach ($recipes as $recipe) {
+                $total++;
+                $candidateText = self::normalizeName($recipe->title_cleaned ?: $recipe->title);
+                if ($candidateText === '') {
+                    $skipped++;
+                    continue;
+                }
+
+                $candidateTokens = self::tokenize($candidateText);
+                $best = null;
+                $bestScore = 0;
+
+                foreach ($foods as $food) {
+                    $score = self::matchScore(
+                        $candidateText,
+                        $candidateTokens,
+                        $food['normalized'],
+                        $food['tokens']
+                    );
+
+                    if ($score > $bestScore) {
+                        $bestScore = $score;
+                        $best = $food;
+                    }
+                }
+
+                if ($best && $bestScore >= $minScore) {
+                    if ((int) $recipe->food_id !== (int) $best['id']) {
+                        $recipe->food_id = $best['id'];
+                        $recipe->save();
+                    }
+                    $linked++;
+                } else {
+                    $skipped++;
+                }
+            }
+        });
+
+        return [
+            'linked' => $linked,
+            'skipped' => $skipped,
+            'total_recipes' => $total,
+        ];
+    }
+
     private static function parseFloat($value): float
     {
         $cleaned = preg_replace('/[^0-9.\-]/', '', (string) $value);
@@ -501,5 +572,40 @@ class NutritionImportService
         }
 
         return null;
+    }
+
+    private static function tokenize(string $text): array
+    {
+        if ($text === '') {
+            return [];
+        }
+
+        $tokens = explode(' ', $text);
+        $tokens = array_filter($tokens, fn ($t) => strlen($t) >= 3);
+        return array_values(array_unique($tokens));
+    }
+
+    private static function matchScore(string $aText, array $aTokens, string $bText, array $bTokens): int
+    {
+        if ($aText === '' || $bText === '') {
+            return 0;
+        }
+
+        if ($aText === $bText) {
+            return 100;
+        }
+
+        if (str_contains($aText, $bText) || str_contains($bText, $aText)) {
+            return 85;
+        }
+
+        $intersection = count(array_intersect($aTokens, $bTokens));
+        $union = count(array_unique(array_merge($aTokens, $bTokens)));
+
+        if ($union === 0) {
+            return 0;
+        }
+
+        return (int) round(($intersection / $union) * 100);
     }
 }

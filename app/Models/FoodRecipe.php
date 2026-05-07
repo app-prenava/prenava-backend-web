@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FoodRecipe extends Model
 {
     protected $table = 'food_recipes';
 
     protected $fillable = [
+        'food_id',
         'recipe_hash',
         'title',
         'title_cleaned',
@@ -27,4 +29,9 @@ class FoodRecipe extends Model
         'total_ingredients' => 'integer',
         'total_steps' => 'integer',
     ];
+
+    public function food(): BelongsTo
+    {
+        return $this->belongsTo(Food::class);
+    }
 }

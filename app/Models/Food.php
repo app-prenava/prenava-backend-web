@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Food extends Model
 {
@@ -62,5 +63,10 @@ class Food extends Model
     public function scopeLowCalorie($query, float $maxCalories = 200.0)
     {
         return $query->where('calories', '<=', $maxCalories);
+    }
+
+    public function recipes(): HasMany
+    {
+        return $this->hasMany(FoodRecipe::class);
     }
 }
