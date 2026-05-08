@@ -70,6 +70,13 @@ Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
 
+    // Email Verification (OTP)
+    Route::post('verify-email', [AuthController::class, 'verifyEmail']);
+    Route::post('resend-verification', [AuthController::class, 'resendVerification']);
+
+    // Google OAuth
+    Route::post('google', [\App\Http\Controllers\GoogleAuthController::class, 'handleGoogleLogin']);
+
     // Forgot Password Flow
     Route::post('forgot-password/send-otp', [\App\Http\Controllers\ForgotPasswordController::class, 'sendOtp']);
     Route::post('forgot-password/verify-otp', [\App\Http\Controllers\ForgotPasswordController::class, 'verifyOtp']);

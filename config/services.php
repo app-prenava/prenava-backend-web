@@ -56,4 +56,8 @@ return [
         'timeout' => env('GEMINI_TIMEOUT', 30),
     ],
 
+    'google' => [
+        'android_client_id' => env('GOOGLE_ANDROID_CLIENT_ID'),
+    ],
+
 ];

@@ -5,16 +5,19 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\ActivityLog;
 use App\Services\ActivityLogService;
+use App\Mail\EmailVerificationOtpMail;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Illuminate\Support\Facades\DB;
 use Tymon\JWTAuth\Exceptions\TokenExpiredException;
 use Tymon\JWTAuth\Exceptions\TokenInvalidException;
 use Tymon\JWTAuth\Exceptions\JWTException;
+use Carbon\Carbon;
 
 class AuthController extends Controller
 {
@@ -41,7 +44,7 @@ class AuthController extends Controller
     {
         $v = Validator::make($request->all(), [
             'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'email'    => ['required', 'string', 'email', 'max:255'],
             'password' => ['required', 'string', 'min:6', 'confirmed'],
         ]);
 
@@ -49,25 +52,68 @@ class AuthController extends Controller
             return response()->json($v->errors(), 422);
         }
 
+        // Check if email exists
+        $existing = User::where('email', $request->email)->first();
+        if ($existing) {
+            // If unverified and older than 1 hour, allow re-registration
+            if (!$existing->email_verified_at && $existing->created_at->lt(now()->subHour())) {
+                DB::table('email_verification_otps')->where('email', $request->email)->delete();
+                $existing->forceDelete();
+            } else if (!$existing->email_verified_at) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Email sudah terdaftar. Silakan cek email untuk verifikasi OTP.',
+                ], 409);
+            } else {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Email sudah digunakan.',
+                ], 409);
+            }
+        }
+
         $user = User::create([
-            'name'      => $request->name,
-            'email'     => $request->email,
-            'password'  => Hash::make($request->password),
-            'role'      => 'ibu_hamil',
-            'is_active' => true,
+            'name'          => $request->name,
+            'email'         => $request->email,
+            'password'      => Hash::make($request->password),
+            'role'          => 'ibu_hamil',
+            'is_active'     => true,
+            'auth_provider' => 'email',
         ]);
 
-        // Log registrasi
+        // Generate and send OTP
+        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        DB::table('email_verification_otps')->updateOrInsert(
+            ['email' => $request->email],
+            [
+                'otp'        => Hash::make($otp),
+                'expires_at' => Carbon::now()->addMinutes(15),
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ]
+        );
+
+        try {
+            Mail::to($request->email)->send(new EmailVerificationOtpMail($otp, $user->name));
+        } catch (\Exception $e) {
+            // Dev fallback: return OTP in response
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Registrasi berhasil. (Dev: OTP = ' . $otp . ')',
+                'user'    => $this->userPayload($user),
+            ]);
+        }
+
         ActivityLogService::logFromUser(
             ActivityLog::TYPE_REGISTER,
             $user,
-            "User {$user->name} berhasil melakukan registrasi.",
+            "User {$user->name} berhasil melakukan registrasi. Menunggu verifikasi email.",
             request: $request
         );
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'User registered successfully',
+            'message' => 'Registrasi berhasil. Silakan cek email untuk kode OTP verifikasi.',
             'user'    => $this->userPayload($user),
         ]);
     }
@@ -87,8 +133,25 @@ class AuthController extends Controller
             return response()->json(['status'=>'error','message'=>'Unauthorized'], 401);
         }
 
+        // Google-only users cannot login with email/password
+        if ($user->auth_provider === 'google' && !$user->password) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Akun ini terdaftar via Google. Silakan login dengan Google.',
+            ], 400);
+        }
+
         if (!$user->is_active) {
             return response()->json(['status'=>'error','message'=>'Account is deactivated. Contact admin.'], 403);
+        }
+
+        // Check email verification for email-registered users
+        if ($user->auth_provider === 'email' && !$user->email_verified_at) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Email belum diverifikasi. Silakan cek email untuk kode OTP.',
+                'requires_verification' => true,
+            ], 403);
         }
 
         if (!auth('api')->attempt($cred)) {
@@ -122,6 +185,96 @@ class AuthController extends Controller
                 'expires_in' => $ttlSec ?: null,
             ],
         ]);
+    }
+
+    /**
+     * Verify email with OTP code (after registration).
+     */
+    public function verifyEmail(Request $request): JsonResponse
+    {
+        $v = Validator::make($request->all(), [
+            'email' => ['required', 'email'],
+            'otp'   => ['required', 'string', 'size:6'],
+        ]);
+        if ($v->fails()) return response()->json($v->errors(), 422);
+
+        $record = DB::table('email_verification_otps')->where('email', $request->email)->first();
+        if (!$record) {
+            return response()->json(['status' => 'error', 'message' => 'OTP tidak ditemukan. Silakan kirim ulang.'], 400);
+        }
+
+        if (Carbon::now()->isAfter($record->expires_at)) {
+            return response()->json(['status' => 'error', 'message' => 'OTP telah kedaluwarsa. Silakan kirim ulang.'], 400);
+        }
+
+        if (!Hash::check($request->otp, $record->otp)) {
+            return response()->json(['status' => 'error', 'message' => 'OTP tidak valid.'], 400);
+        }
+
+        $user = User::where('email', $request->email)->first();
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'User tidak ditemukan.'], 404);
+        }
+
+        $user->update(['email_verified_at' => now()]);
+        DB::table('email_verification_otps')->where('email', $request->email)->delete();
+
+        // Auto-login after verification
+        $token  = $this->issueToken($user);
+        $ttlMap = config('auth_tokens.ttl_seconds');
+        $ttlSec = $ttlMap[$user->role] ?? ($ttlMap['default'] ?? 0);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Email berhasil diverifikasi.',
+            'user'   => $this->userPayload($user),
+            'authorization' => [
+                'token'      => $token,
+                'type'       => 'bearer',
+                'expires_in' => $ttlSec ?: null,
+            ],
+        ]);
+    }
+
+    /**
+     * Resend verification OTP.
+     */
+    public function resendVerification(Request $request): JsonResponse
+    {
+        $v = Validator::make($request->all(), [
+            'email' => ['required', 'email'],
+        ]);
+        if ($v->fails()) return response()->json($v->errors(), 422);
+
+        $user = User::where('email', $request->email)->first();
+        if (!$user) {
+            return response()->json(['status' => 'error', 'message' => 'Email tidak terdaftar.'], 404);
+        }
+
+        if ($user->email_verified_at) {
+            return response()->json(['status' => 'error', 'message' => 'Email sudah diverifikasi.'], 400);
+        }
+
+        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        DB::table('email_verification_otps')->updateOrInsert(
+            ['email' => $request->email],
+            [
+                'otp'        => Hash::make($otp),
+                'expires_at' => Carbon::now()->addMinutes(15),
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ]
+        );
+
+        try {
+            Mail::to($request->email)->send(new EmailVerificationOtpMail($otp, $user->name));
+            return response()->json(['status' => 'success', 'message' => 'OTP verifikasi telah dikirim ulang.']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Dev mode: OTP = ' . $otp,
+            ]);
+        }
     }
 
     public function logout(Request $request): JsonResponse
