@@ -34,11 +34,17 @@ class AuthController extends Controller
         $ttlMap   = config('auth_tokens.ttl_seconds');
         $ttlSec   = $ttlMap[$user->role] ?? ($ttlMap['default'] ?? 0);
 
+        $factory = JWTAuth::factory();
+        
         if ($ttlSec && $ttlSec > 0) {
-            $claims['exp'] = now()->addSeconds((int) $ttlSec)->timestamp;
+            $factory->setTTL($ttlSec / 60); // setTTL in minutes
+            return JWTAuth::claims($claims)->fromUser($user);
+        } else {
+            // Never expiring token
+            $factory->setTTL(null);
+            // Remove 'exp' from claims if it somehow exists
+            return JWTAuth::claims($claims)->fromUser($user);
         }
-
-        return JWTAuth::claims($claims)->fromUser($user);
     }
     public function register(Request $request): JsonResponse
     {

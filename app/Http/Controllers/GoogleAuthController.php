@@ -155,10 +155,14 @@ class GoogleAuthController extends Controller
         $ttlMap = config('auth_tokens.ttl_seconds');
         $ttlSec = $ttlMap[$user->role] ?? ($ttlMap['default'] ?? 0);
 
-        if ($ttlSec && $ttlSec > 0) {
-            $claims['exp'] = now()->addSeconds((int) $ttlSec)->timestamp;
-        }
+        $factory = JWTAuth::factory();
 
-        return JWTAuth::claims($claims)->fromUser($user);
+        if ($ttlSec && $ttlSec > 0) {
+            $factory->setTTL($ttlSec / 60);
+            return JWTAuth::claims($claims)->fromUser($user);
+        } else {
+            $factory->setTTL(null);
+            return JWTAuth::claims($claims)->fromUser($user);
+        }
     }
 }
