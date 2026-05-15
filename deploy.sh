@@ -15,7 +15,8 @@ docker compose -f docker-compose.yml exec -T app composer install --no-dev --opt
 docker compose -f docker-compose.yml exec -T app php artisan config:cache
 docker compose -f docker-compose.yml exec -T app php artisan route:cache
 docker compose -f docker-compose.yml exec -T app php artisan view:cache
-docker compose -f docker-compose.yml exec -T app php artisan migrate --force
+echo "Running database migrations..."
+docker compose -f docker-compose.yml exec -T app php artisan migrate --force --no-interaction
 
 # Seeders for research data (Tugas Akhir)
 echo "Seeding research data..."

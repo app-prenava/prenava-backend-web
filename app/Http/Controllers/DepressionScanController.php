@@ -50,10 +50,11 @@ class DepressionScanController extends Controller
             $ml = $response->json();
 
             // Log deteksi depresi (scan wajah)
+            $historyEntry = null;
             if ($user = $request->user()) {
                 try {
                     // Save to History table
-                    \App\Models\HealthScanHistory::create([
+                    $historyEntry = \App\Models\HealthScanHistory::create([
                         'user_id' => $user->user_id ?? $user->id,
                         'type'    => 'depression',
                         'result'  => $ml,
@@ -75,6 +76,13 @@ class DepressionScanController extends Controller
             return response()->json([
                 'status' => 'success',
                 'data'   => $ml,
+                // FE can store image locally using this history id.
+                // Backend intentionally does not store uploaded image path.
+                'history' => $historyEntry ? [
+                    'id'         => $historyEntry->id,
+                    'type'       => $historyEntry->type,
+                    'created_at' => $historyEntry->created_at,
+                ] : null,
             ]);
 
         } catch (\Exception $e) {

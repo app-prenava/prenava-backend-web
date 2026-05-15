@@ -25,7 +25,10 @@ class User extends Authenticatable implements JWTSubject
         'role',
         'is_active',
         'token_version',
-        'category'
+        'category',
+        'google_id',
+        'auth_provider',
+        'email_verified_at',
     ];
 
     protected $hidden = [
@@ -219,5 +222,13 @@ class User extends Authenticatable implements JWTSubject
     public function dailyTaskLogs(): HasMany
     {
         return $this->hasMany(UserTaskLog::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Get user stunting predictions
+     */
+    public function stuntingPredictions(): HasMany
+    {
+        return $this->hasMany(StuntingPrediction::class, 'user_id', 'user_id');
     }
 }

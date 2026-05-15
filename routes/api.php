@@ -39,6 +39,9 @@ use App\Http\Controllers\CatatanIbuController;
 use App\Http\Controllers\HistoryLogController;
 use App\Http\Controllers\DailyFeatureController;
 use App\Http\Controllers\LocalWisdomController;
+use App\Http\Controllers\StuntingPredictionController;
+use App\Http\Controllers\FoodRecommendationController;
+use App\Http\Controllers\UserFoodPreferenceController;
 
 // Bidan Subscription Controllers
 use App\Http\Controllers\SubscriptionController;
@@ -66,6 +69,13 @@ Route::prefix('bookmarks')->group(function () {
 Route::prefix('auth')->group(function () {
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
+
+    // Email Verification (OTP)
+    Route::post('verify-email', [AuthController::class, 'verifyEmail']);
+    Route::post('resend-verification', [AuthController::class, 'resendVerification']);
+
+    // Google OAuth
+    Route::post('google', [\App\Http\Controllers\GoogleAuthController::class, 'handleGoogleLogin']);
 
     // Forgot Password Flow
     Route::post('forgot-password/send-otp', [\App\Http\Controllers\ForgotPasswordController::class, 'sendOtp']);
@@ -124,7 +134,7 @@ Route::prefix('recomendation/sport')->group(function () {
     );
 });
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware('auth:api')->group(function () {
     Route::get('/health/history', [HealthHistoryController::class, 'index']);
     Route::delete('/health/history/{id}', [HealthHistoryController::class, 'destroy']);
 });
@@ -393,4 +403,51 @@ Route::prefix('user')->middleware(['auth:api'])->group(function () {
     Route::post('/local-wisdom/toggle', [LocalWisdomController::class, 'toggle']);
     Route::get('/local-wisdom/analytics', [LocalWisdomController::class, 'analytics']);
 });
+
+// ============================================
+// STUNTING RISK PREDICTION
+// ============================================
+
+// Public: questionnaire metadata (no auth required)
+Route::get('/stunting/questions', [StuntingPredictionController::class, 'questions']);
+
+// Protected: prediction + history
+Route::prefix('stunting')->middleware(['auth:api'])->group(function () {
+    Route::post('/predict',      [StuntingPredictionController::class, 'predict']);
+    Route::get('/history',       [StuntingPredictionController::class, 'history']);
+    Route::get('/history/{id}',  [StuntingPredictionController::class, 'show']);
+
+    // Recommendations (on-demand, after prediction)
+    Route::get('/recommendations/{prediction_id}', [FoodRecommendationController::class, 'recommendations']);
+
+    // Gemini AI educational endpoints
+    Route::post('/gemini/cooking-guide', [FoodRecommendationController::class, 'cookingGuide']);
+    Route::post('/gemini/meal-plan',     [FoodRecommendationController::class, 'mealPlan']);
+    Route::post('/meal-plans/generate',  [FoodRecommendationController::class, 'generateDailyPlan']);
+    Route::post('/meal-plans',           [FoodRecommendationController::class, 'createWeeklyPlan']);
+    Route::get('/meal-plans/current',    [FoodRecommendationController::class, 'currentPlan']);
+    Route::get('/meal-plans/history',    [FoodRecommendationController::class, 'planHistory']);
+    Route::post('/meal-plans/{id}/refresh-day', [FoodRecommendationController::class, 'refreshPlanDay']);
+    Route::get('/meal-plans/{id}/progress', [FoodRecommendationController::class, 'mealPlanProgress']);
+    Route::post('/meal-plans/items/{item_id}/completion', [FoodRecommendationController::class, 'setMealItemCompletion']);
+
+    // Personalization preferences
+    Route::get('/preferences',  [UserFoodPreferenceController::class, 'show']);
+    Route::post('/preferences', [UserFoodPreferenceController::class, 'upsert']);
+
+    // AI support (safe fallback on failure)
+    Route::post('/ai/nutrition-paragraph', [FoodRecommendationController::class, 'nutritionParagraph']);
+    Route::get('/ai/preference-questions', [FoodRecommendationController::class, 'preferenceQuestions']);
+    Route::post('/ai/prompt-foods',        [FoodRecommendationController::class, 'promptFoods']);
+});
+
+// Public: food catalog (no auth required)
+Route::get('/stunting/foods',      [FoodRecommendationController::class, 'index']);
+Route::get('/stunting/foods/{id}', [FoodRecommendationController::class, 'show']);
+Route::get('/stunting/recipes', [FoodRecommendationController::class, 'recipesIndex']);
+Route::get('/stunting/recipes/categories', [FoodRecommendationController::class, 'recipeCategories']);
+Route::get('/stunting/recipes/by-id/{recipe_id}', [FoodRecommendationController::class, 'recipeById'])
+    ->whereNumber('recipe_id');
+Route::get('/stunting/recipes/{food_id}', [FoodRecommendationController::class, 'recipe'])
+    ->whereNumber('food_id');
 
