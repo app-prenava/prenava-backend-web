@@ -116,7 +116,12 @@ Route::prefix('recomendation/sport')->group(function () {
     Route::get('/{activity}', [RecomendationSportController::class, 'showSportMeta']);
     Route::post('/', [RecomendationSportController::class, 'storeSportMeta']);
     Route::put('/{activity}', [RecomendationSportController::class, 'updateSportMeta']);
+
     Route::delete('/{activity}', [RecomendationSportController::class, 'deleteSportMeta']);
+    Route::delete(
+        '/{activity}/images',
+        [RecomendationSportController::class, 'deleteSportImages']
+    );
 });
 
 Route::middleware('auth:sanctum')->group(function () {

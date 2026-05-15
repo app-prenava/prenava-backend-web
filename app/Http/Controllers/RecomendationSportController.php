@@ -12,6 +12,7 @@ use App\Models\ActivityLog;
 use App\Services\ActivityLogService;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 class RecomendationSportController extends Controller
 {
@@ -481,10 +482,15 @@ class RecomendationSportController extends Controller
 
         $pictures = ['picture_1' => null, 'picture_2' => null, 'picture_3' => null];
 
-        foreach ($pictures as $key => $_) {
-            if ($request->hasFile($key)) {
-                $path         = $request->file($key)->store('sports', 'public');
-                $pictures[$key] = '/storage/' . $path;
+        foreach (['picture_1', 'picture_2', 'picture_3'] as $picture) {
+
+            if ($request->hasFile($picture)) {
+
+                $path = $request
+                    ->file($picture)
+                    ->store('ml_sport', 'public');
+
+                $pictures[$picture] = '/storage/' . $path;
             }
         }
 
@@ -518,37 +524,37 @@ class RecomendationSportController extends Controller
         ], 201);
     }
 
-    public function updateSportMeta(Request $request, string $code): JsonResponse
-    {
-        [$uid] = AuthToken::assertRoleFresh($request, 'admin');
+public function updateSportMeta(Request $request, string $code): JsonResponse
+{
+    [$uid] = AuthToken::assertRoleFresh($request, 'admin');
 
-        $v = Validator::make($request->all(), [
-            'name'             => ['sometimes', 'string', 'max:150'],
-            'video_link'       => ['nullable', 'string', 'max:2048'],
-            'long_text'        => ['nullable', 'string'],
-            'picture_1'        => ['nullable', 'file', 'image', 'max:5120'],
-            'picture_2'        => ['nullable', 'file', 'image', 'max:5120'],
-            'picture_3'        => ['nullable', 'file', 'image', 'max:5120'],
-            'remove_picture_1' => ['nullable', 'boolean'],
-            'remove_picture_2' => ['nullable', 'boolean'],
-            'remove_picture_3' => ['nullable', 'boolean'],
-        ]);
+    $v = Validator::make($request->all(), [
+        'name'             => ['sometimes', 'string', 'max:150'],
+        'video_link'       => ['nullable', 'string', 'max:2048'],
+        'long_text'        => ['nullable', 'string'],
+        'picture_1'        => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:5120'],
+        'picture_2'        => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:5120'],
+        'picture_3'        => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:5120'],
+        'remove_picture_1' => ['nullable', 'boolean'],
+        'remove_picture_2' => ['nullable', 'boolean'],
+        'remove_picture_3' => ['nullable', 'boolean'],
+    ]);
 
-        if ($v->fails()) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Validation failed.',
-                'errors'  => $v->errors(),
-            ], 422);
-        }
+    if ($v->fails()) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'Validation failed.',
+            'errors'  => $v->errors(),
+        ], 422);
+    }
 
-        $exists = DB::table('data_ml_sport')->where('code', $code)->exists();
-        if (! $exists) {
-            return response()->json([
-                'status'  => 'error',
-                'message' => 'Data not found.',
-            ], 404);
-        }
+    $exists = DB::table('data_ml_sport')->where('code', $code)->exists();
+    if (! $exists) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'Data not found.',
+        ], 404);
+    }
 
         $d       = $v->validated();
         $payload = ['updated_at' => now()];
@@ -656,4 +662,97 @@ class RecomendationSportController extends Controller
             ],
         ]);
     }
+
+public function deleteSportImages(
+    Request $request,
+    string $code
+): JsonResponse
+{
+    [$uid] = AuthToken::assertRoleFresh($request, 'admin');
+
+    $pictures = array_unique($request->pictures ?? []);
+
+    $allowedPictures = [
+        'picture_1',
+        'picture_2',
+        'picture_3',
+    ];
+
+    $pictures = $request->json('pictures', []);
+    //dd($request->all());
+
+    if (! is_array($pictures)) {
+        $pictures = [$pictures];
+    }
+
+    $pictures = array_unique($pictures);
+
+    $pictures = array_values(
+        array_filter(
+            $pictures,
+            fn ($p) => in_array($p, $allowedPictures)
+        )
+    );
+
+    
+
+    if (empty($pictures)) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'No valid pictures selected.',
+        ], 422);
+    }
+
+    $row = DB::table('data_ml_sport')
+        ->where('code', $code)
+        ->first();
+
+    if (! $row) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'Sport metadata not found.',
+        ], 404);
+    }
+
+    $payload = [
+        'updated_at' => now(),
+    ];
+
+    foreach ($pictures as $picture) {
+
+        // skip kalau sudah kosong
+        if (empty($row->$picture)) {
+            continue;
+        }
+
+        try {
+            $storagePath = str_replace(
+                '/storage/',
+                '',
+                $row->$picture
+            );
+
+            Storage::disk('public')->delete($storagePath);
+
+        } catch (\Throwable $e) {
+            // optional log
+        }
+
+        $payload[$picture] = null;
+    }
+
+    DB::table('data_ml_sport')
+        ->where('code', $code)
+        ->update($payload);
+
+    $updated = DB::table('data_ml_sport')
+        ->where('code', $code)
+        ->first();
+
+    return response()->json([
+        'status'  => 'success',
+        'message' => 'Pictures deleted successfully.',
+        'data'    => $updated,
+    ], 200);
+}
 }
