@@ -388,6 +388,101 @@ public function addComment(Request $request, $postId)
         ], 200);
     }
 
+    public function deleteComment(Request $request, $id)
+    {
+        DB::beginTransaction();
+
+        try {
+            $authorizationHeader = $request->header('Authorization');
+
+            if (!$authorizationHeader || !str_starts_with($authorizationHeader, 'Bearer ')) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
+
+            $token = str_replace('Bearer ', '', $authorizationHeader);
+
+            try {
+                $user = JWTAuth::setToken($token)->authenticate();
+            } catch (\Exception $e) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid token'
+                ], 401);
+            }
+
+            if (!$user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
+
+            $userId = (int) $user->user_id;
+
+            $commentTable = (new KomentarKomunitas)->getTable();
+            $postTable = (new Komunitas)->getTable();
+
+            $comment = DB::table($commentTable)
+                ->where('id', $id)
+                ->first();
+
+            if (!$comment) {
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Comment not found'
+                ], 404);
+            }
+
+            if ((int) $comment->user_id !== $userId) {
+                DB::rollBack();
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Forbidden',
+                    'debug' => [
+                        'comment_id' => $comment->id,
+                        'comment_user_id' => $comment->user_id,
+                        'auth_user_id' => $userId,
+                    ],
+                ], 403);
+            }
+
+            DB::table($commentTable)
+                ->where('id', $id)
+                ->delete();
+
+            $post = DB::table($postTable)
+                ->where('post_id', $comment->post_id)
+                ->first();
+
+            if ($post && $post->komen > 0) {
+                DB::table($postTable)
+                    ->where('post_id', $comment->post_id)
+                    ->decrement('komen');
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Comment deleted successfully'
+            ], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to delete comment',
+                'debug_info' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
     /**
      * Resolve authenticated user from the API guard or raw JWT token.
      */

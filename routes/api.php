@@ -126,7 +126,12 @@ Route::prefix('recomendation/sport')->group(function () {
     Route::get('/{activity}', [RecomendationSportController::class, 'showSportMeta']);
     Route::post('/', [RecomendationSportController::class, 'storeSportMeta']);
     Route::put('/{activity}', [RecomendationSportController::class, 'updateSportMeta']);
+
     Route::delete('/{activity}', [RecomendationSportController::class, 'deleteSportMeta']);
+    Route::delete(
+        '/{activity}/images',
+        [RecomendationSportController::class, 'deleteSportImages']
+    );
 });
 
 Route::middleware('auth:api')->group(function () {
@@ -196,6 +201,7 @@ Route::group(['middleware' => 'auth:api'], function () {
     Route::post('/komunitas/komen/add/{id}', [KomunitasController::class, 'addComment']);
     Route::post('/komunitas/like/add/{id}', [KomunitasController::class, 'addLike']);
     Route::get('/komunitas/komen/{id}', [KomunitasController::class, 'getComments']);
+    Route::delete('/komunitas/komen/delete/{id}', [KomunitasController::class, 'deleteComment']);
 
     // Catatan Kunjungan
     Route::get('/catatan/history', [CatatanController::class, 'index']);
