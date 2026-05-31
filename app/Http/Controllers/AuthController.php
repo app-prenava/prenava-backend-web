@@ -37,15 +37,14 @@ class AuthController extends Controller
         $factory = JWTAuth::factory();
         
         if ($ttlSec && $ttlSec > 0) {
-            $factory->setTTL($ttlSec / 60); // setTTL in minutes
+            $factory->setTTL($ttlSec / 60);
             return JWTAuth::claims($claims)->fromUser($user);
         } else {
-            // Never expiring token
             $factory->setTTL(null);
-            // Remove 'exp' from claims if it somehow exists
             return JWTAuth::claims($claims)->fromUser($user);
         }
     }
+
     public function register(Request $request): JsonResponse
     {
         $v = Validator::make($request->all(), [
@@ -61,7 +60,6 @@ class AuthController extends Controller
         // Check if email exists
         $existing = User::where('email', $request->email)->first();
         if ($existing) {
-            // If unverified and older than 1 hour, allow re-registration
             if (!$existing->email_verified_at && $existing->created_at->lt(now()->subHour())) {
                 DB::table('email_verification_otps')->where('email', $request->email)->delete();
                 $existing->forceDelete();
@@ -78,16 +76,45 @@ class AuthController extends Controller
             }
         }
 
+        // EMAIL_VERIFICATION_ENABLED=true  → email_verified_at kosong (harus verifikasi)
+        // EMAIL_VERIFICATION_ENABLED=false → email_verified_at diisi now() (bypass verifikasi)
+        $emailVerificationEnabled = false;
+        //$emailVerificationEnabled = config('app.email_verification_enabled', true);
+
         $user = User::create([
-            'name'          => $request->name,
-            'email'         => $request->email,
-            'password'      => Hash::make($request->password),
-            'role'          => 'ibu_hamil',
-            'is_active'     => true,
-            'auth_provider' => 'email',
+            'name'              => $request->name,
+            'email'             => $request->email,
+            'password'          => Hash::make($request->password),
+            'role'              => 'ibu_hamil',
+            'is_active'         => true,
+            'auth_provider'     => 'email',
+            'email_verified_at' => $emailVerificationEnabled ? null : now(),
         ]);
 
-        // Generate and send OTP
+        if (!$emailVerificationEnabled) {
+            $token  = $this->issueToken($user);
+            $ttlMap = config('auth_tokens.ttl_seconds');
+            $ttlSec = $ttlMap[$user->role] ?? ($ttlMap['default'] ?? 0);
+
+            ActivityLogService::logFromUser(
+                ActivityLog::TYPE_REGISTER,
+                $user,
+                "User {$user->name} berhasil registrasi (verifikasi email dinonaktifkan).",
+                request: $request
+            );
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Registrasi berhasil.',
+                'user'    => $this->userPayload($user),
+                'authorization' => [
+                    'token'      => $token,
+                    'type'       => 'bearer',
+                    'expires_in' => $ttlSec ?: null,
+                ],
+            ]);
+        }
+
         $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         DB::table('email_verification_otps')->updateOrInsert(
             ['email' => $request->email],
@@ -139,7 +166,6 @@ class AuthController extends Controller
             return response()->json(['status'=>'error','message'=>'Unauthorized'], 401);
         }
 
-        // Google-only users cannot login with email/password
         if ($user->auth_provider === 'google' && !$user->password) {
             return response()->json([
                 'status'  => 'error',
@@ -151,11 +177,10 @@ class AuthController extends Controller
             return response()->json(['status'=>'error','message'=>'Account is deactivated. Contact admin.'], 403);
         }
 
-        // Check email verification for email-registered users
         if ($user->auth_provider === 'email' && !$user->email_verified_at) {
             return response()->json([
-                'status'  => 'error',
-                'message' => 'Email belum diverifikasi. Silakan cek email untuk kode OTP.',
+                'status'                => 'error',
+                'message'               => 'Email belum diverifikasi. Silakan cek email untuk kode OTP.',
                 'requires_verification' => true,
             ], 403);
         }
@@ -166,7 +191,6 @@ class AuthController extends Controller
 
         $token = $this->issueToken($user);
 
-        // Log login
         ActivityLogService::logFromUser(
             ActivityLog::TYPE_LOGIN,
             $user,
@@ -174,8 +198,8 @@ class AuthController extends Controller
             request: $request
         );
 
-        $ttlMap   = config('auth_tokens.ttl_seconds');
-        $ttlSec   = $ttlMap[$user->role] ?? ($ttlMap['default'] ?? 0);
+        $ttlMap = config('auth_tokens.ttl_seconds');
+        $ttlSec = $ttlMap[$user->role] ?? ($ttlMap['default'] ?? 0);
 
         return response()->json([
             'status' => 'success',
@@ -193,9 +217,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Verify email with OTP code (after registration).
-     */
     public function verifyEmail(Request $request): JsonResponse
     {
         $v = Validator::make($request->all(), [
@@ -225,15 +246,14 @@ class AuthController extends Controller
         $user->update(['email_verified_at' => now()]);
         DB::table('email_verification_otps')->where('email', $request->email)->delete();
 
-        // Auto-login after verification
         $token  = $this->issueToken($user);
         $ttlMap = config('auth_tokens.ttl_seconds');
         $ttlSec = $ttlMap[$user->role] ?? ($ttlMap['default'] ?? 0);
 
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => 'Email berhasil diverifikasi.',
-            'user'   => $this->userPayload($user),
+            'user'    => $this->userPayload($user),
             'authorization' => [
                 'token'      => $token,
                 'type'       => 'bearer',
@@ -242,9 +262,6 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Resend verification OTP.
-     */
     public function resendVerification(Request $request): JsonResponse
     {
         $v = Validator::make($request->all(), [
@@ -285,7 +302,6 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        // Log logout sebelum invalidate token
         try {
             $payload = JWTAuth::parseToken()->getPayload();
             $uid  = (int) $payload->get('uid');
@@ -311,8 +327,8 @@ class AuthController extends Controller
         $user = User::select('user_id','name','email','role','token_version')->find($uid);
         $token = $this->issueToken($user);
 
-        $ttlMap   = config('auth_tokens.ttl_seconds');
-        $ttlSec   = $ttlMap[$user->role] ?? ($ttlMap['default'] ?? 0);
+        $ttlMap = config('auth_tokens.ttl_seconds');
+        $ttlSec = $ttlMap[$user->role] ?? ($ttlMap['default'] ?? 0);
 
         return response()->json([
             'status' => 'success',
@@ -371,7 +387,6 @@ class AuthController extends Controller
                 'updated_at'    => now(),
             ]);
 
-        // Log ganti password
         ActivityLogService::log(
             ActivityLog::TYPE_CHANGE_PASSWORD,
             $uid,
