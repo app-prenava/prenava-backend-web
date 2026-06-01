@@ -17,40 +17,56 @@ class KomunitasController extends Controller
 {
     public function index(Request $request)
     {
-        $page = $request->query('page', 1);
+        $page  = $request->query('page', 1);
         $limit = $request->query('limit', 10);
+
+        // Ambil user yang sedang login (nullable, untuk guest)
+        $authUser   = $this->resolveAuthenticatedUser();
+        $authUserId = $authUser?->user_id;
 
         $Komunitas = Komunitas::with('user')
             ->orderBy('created_at', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
 
-        // Transform data to include user information
-        $KomunitasWithUser = $Komunitas->map(function ($komunitas) {
+        // Kumpulkan semua post_id di halaman ini
+        $postIds = $Komunitas->pluck('post_id');
+
+        // Satu query untuk cek like milik user ini pada post di halaman ini
+        $likedPostIds = collect();
+        if ($authUserId) {
+            $likedPostIds = Like::where('user_id', $authUserId)
+                ->whereIn('post_id', $postIds)
+                ->pluck('post_id')
+                ->flip(); // flip agar bisa pakai has() — O(1) lookup
+        }
+
+        $KomunitasWithUser = $Komunitas->map(function ($komunitas) use ($likedPostIds) {
             return [
-                'id' => $komunitas->post_id,
-                'judul' => $komunitas->judul,
-                'deskripsi' => $komunitas->deskripsi,
-                'apresiasi' => $komunitas->apresiasi,
-                'komen' => $komunitas->komen,
+                'id'         => $komunitas->post_id,
+                'judul'      => $komunitas->judul,
+                'deskripsi'  => $komunitas->deskripsi,
+                'apresiasi'  => $komunitas->apresiasi,
+                'komen'      => $komunitas->komen,
+                'is_liked'   => $likedPostIds->has($komunitas->post_id), // ← TAMBAHAN
                 'created_at' => $komunitas->created_at,
                 'updated_at' => $komunitas->updated_at,
-                'user_id' => $komunitas->user_id,
-                'user' => $komunitas->user ? [
-                    'id' => $komunitas->user->user_id,
-                    'name' => $komunitas->user->name,
+                'user_id'    => $komunitas->user_id,
+                'user'       => $komunitas->user ? [
+                    'id'            => $komunitas->user->user_id,
+                    'name'          => $komunitas->user->name,
                     'profile_image' => $komunitas->user->selected_icon_data_cache ?? null,
-                ] : null
+                ] : null,
             ];
         });
 
         return response()->json([
-            'Komunitas' => $KomunitasWithUser,
+            'Komunitas'  => $KomunitasWithUser,
             'pagination' => [
                 'current_page' => $Komunitas->currentPage(),
-                'last_page' => $Komunitas->lastPage(),
-                'per_page' => $Komunitas->perPage(),
-                'total' => $Komunitas->total(),
-            ]
+                'last_page'    => $Komunitas->lastPage(),
+                'per_page'     => $Komunitas->perPage(),
+                'total'        => $Komunitas->total(),
+            ],
         ]);
     }
 
