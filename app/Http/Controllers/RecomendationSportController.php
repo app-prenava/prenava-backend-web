@@ -150,8 +150,14 @@ class RecomendationSportController extends Controller
 
         // Enrich semua recommendation level
         $recommendations = $ml['recommendations'] ?? [];
+
         foreach ($recommendations as $level => $items) {
             $recommendations[$level] = array_map($enrich, $items);
+            
+            // Acak urutan hanya untuk level tertentu
+            if (in_array($level, ['highly_recommended', 'allowed_with_caution'])) {
+                shuffle($recommendations[$level]);
+            }
         }
 
         // Enrich all jika ada
