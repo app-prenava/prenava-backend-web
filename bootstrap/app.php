@@ -29,11 +29,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 || in_array('auth:api', $routeMiddleware, true);
         };
 
-        $exceptions->shouldRenderJsonWhen(function ($request, \Throwable $e) {
+        $exceptions->shouldRenderJsonWhen(function ($request, \Throwable $e) use ($isApiRequest) {
             return $isApiRequest($request);
         });
 
-        $exceptions->render(function (\Throwable $e, $request) {
+        $exceptions->render(function (\Throwable $e, $request) use ($isApiRequest) {
             if (!$isApiRequest($request)) {
                 return null;
             }
