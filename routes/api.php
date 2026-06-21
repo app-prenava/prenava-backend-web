@@ -52,6 +52,9 @@ use App\Http\Controllers\InsentifController;
 
 use Illuminate\Support\Facades\Route;
 
+Route::post('/recomendation/sport-sync', [RecomendationSportController::class, 'syncMlRules']);
+Route::get('/ml-service/sport-rules', [RecomendationSportController::class, 'getSportRulesForSync']);
+
 Route::get('/debug/redis-likes', [RedisDebugController::class, 'likes']);
 Route::prefix('parameterized')->group(function () {
     Route::post('/', [ParameterizedController::class, 'store']);      
@@ -451,6 +454,3 @@ Route::get('/stunting/recipes/by-id/{recipe_id}', [FoodRecommendationController:
     ->whereNumber('recipe_id');
 Route::get('/stunting/recipes/{food_id}', [FoodRecommendationController::class, 'recipe'])
     ->whereNumber('food_id');
-
-Route::post('/recomendation/sport-sync', [RecomendationSportController::class, 'syncMlRules']);
-Route::get('/ml-service/sport-rules', [RecomendationSportController::class, 'getSportRulesForSync']);
