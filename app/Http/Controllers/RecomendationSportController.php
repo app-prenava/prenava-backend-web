@@ -389,7 +389,7 @@ class RecomendationSportController extends Controller
         $perPage = max(1, min($perPage, 200));
 
         $query = DB::table('data_ml_sport')
-            ->select(['id', 'code', 'name', 'video_link', 'long_text', 'picture_1', 'picture_2', 'picture_3', 'created_at', 'updated_at'])
+            ->select(['id', 'code', 'name', 'category', 'risk_level_high', 'risk_level_low', 'video_link', 'long_text', 'picture_1', 'picture_2', 'picture_3', 'created_at', 'updated_at'])
             ->orderBy('name');
 
         if ($q !== '') {
@@ -413,7 +413,7 @@ class RecomendationSportController extends Controller
         $baseUrl = rtrim(config('app.url'), '/');
 
         $items = DB::table('data_ml_sport')
-            ->select(['code', 'name', 'video_link', 'long_text', 'picture_1', 'picture_2', 'picture_3'])
+            ->select(['id', 'code', 'name', 'category', 'risk_level_high', 'risk_level_low', 'video_link', 'long_text', 'picture_1', 'picture_2', 'picture_3', 'created_at', 'updated_at'])
             ->orderBy('name')
             ->get()
             ->map(function ($item) use ($baseUrl) {
@@ -437,7 +437,7 @@ class RecomendationSportController extends Controller
         [$uid] = AuthToken::assertRoleFresh($request, 'admin');
 
         $row = DB::table('data_ml_sport')
-            ->select(['id', 'code', 'name', 'video_link', 'long_text', 'picture_1', 'picture_2', 'picture_3', 'created_at', 'updated_at'])
+            ->select(['id', 'code', 'name', 'category', 'risk_level_high', 'risk_level_low', 'video_link', 'long_text', 'picture_1', 'picture_2', 'picture_3', 'created_at', 'updated_at'])
             ->where('code', $code)
             ->first();
 
