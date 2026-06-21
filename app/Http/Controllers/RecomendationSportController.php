@@ -460,13 +460,16 @@ class RecomendationSportController extends Controller
         [$uid] = AuthToken::assertRoleFresh($request, 'admin');
 
         $v = Validator::make($request->all(), [
-            'code'       => ['required', 'string', 'max:100'],
-            'name'       => ['required', 'string', 'max:150'],
-            'video_link' => ['nullable', 'string', 'max:2048'],
-            'long_text'  => ['nullable', 'string'],
-            'picture_1'  => ['nullable', 'image', 'max:2048'],
-            'picture_2'  => ['nullable', 'image', 'max:2048'],
-            'picture_3'  => ['nullable', 'image', 'max:2048'],
+            'code'             => ['required', 'string', 'max:100'],
+            'name'             => ['required', 'string', 'max:150'],
+            'video_link'       => ['nullable', 'string', 'max:2048'],
+            'long_text'        => ['nullable', 'string'],
+            'picture_1'        => ['nullable', 'image', 'max:2048'],
+            'picture_2'        => ['nullable', 'image', 'max:2048'],
+            'picture_3'        => ['nullable', 'image', 'max:2048'],
+            'risk_level_high'  => ['nullable', 'in:highly_recommended,allowed_with_caution,avoid'],
+            'risk_level_low'   => ['nullable', 'in:highly_recommended,allowed_with_caution,avoid'],
+            'category' => ['required', 'string', 'max:50'],
         ]);
 
         if ($v->fails()) {
@@ -503,15 +506,18 @@ class RecomendationSportController extends Controller
         $now = now();
 
         DB::table('data_ml_sport')->insert([
-            'code'       => $d['code'],
-            'name'       => $d['name'],
-            'video_link' => $d['video_link'] ?? null,
-            'long_text'  => $d['long_text'] ?? null,
-            'picture_1'  => $pictures['picture_1'],
-            'picture_2'  => $pictures['picture_2'],
-            'picture_3'  => $pictures['picture_3'],
-            'created_at' => $now,
-            'updated_at' => $now,
+            'code'             => $d['code'],
+            'name'             => $d['name'],
+            'video_link'       => $d['video_link'] ?? null,
+            'long_text'        => $d['long_text'] ?? null,
+            'picture_1'        => $pictures['picture_1'],
+            'picture_2'        => $pictures['picture_2'],
+            'picture_3'        => $pictures['picture_3'],
+            'risk_level_high'  => $d['risk_level_high'] ?? null,
+            'risk_level_low'   => $d['risk_level_low'] ?? null,
+            'category'         => $d['category'],
+            'created_at'       => $now,
+            'updated_at'       => $now,
         ]);
 
         $row     = DB::table('data_ml_sport')->where('code', $d['code'])->first();
@@ -523,44 +529,48 @@ class RecomendationSportController extends Controller
             }
         }
 
+        $this->triggerMlSync();
+
         return response()->json([
             'status'  => 'success',
             'message' => 'Sport metadata created.',
             'data'    => $row,
         ], 201);
     }
+    public function updateSportMeta(Request $request, string $code): JsonResponse
+    {
+        [$uid] = AuthToken::assertRoleFresh($request, 'admin');
 
-public function updateSportMeta(Request $request, string $code): JsonResponse
-{
-    [$uid] = AuthToken::assertRoleFresh($request, 'admin');
+        $v = Validator::make($request->all(), [
+            'name'             => ['sometimes', 'string', 'max:150'],
+            'video_link'       => ['nullable', 'string', 'max:2048'],
+            'long_text'        => ['nullable', 'string'],
+            'picture_1'        => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:5120'],
+            'picture_2'        => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:5120'],
+            'picture_3'        => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:5120'],
+            'remove_picture_1' => ['nullable', 'boolean'],
+            'remove_picture_2' => ['nullable', 'boolean'],
+            'remove_picture_3' => ['nullable', 'boolean'],
+            'category'         => ['sometimes', 'string', 'max:50'],
+            'risk_level_high'  => ['nullable', 'in:highly_recommended,allowed_with_caution,avoid'],
+            'risk_level_low'   => ['nullable', 'in:highly_recommended,allowed_with_caution,avoid'],
+        ]);
 
-    $v = Validator::make($request->all(), [
-        'name'             => ['sometimes', 'string', 'max:150'],
-        'video_link'       => ['nullable', 'string', 'max:2048'],
-        'long_text'        => ['nullable', 'string'],
-        'picture_1'        => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:5120'],
-        'picture_2'        => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:5120'],
-        'picture_3'        => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:5120'],
-        'remove_picture_1' => ['nullable', 'boolean'],
-        'remove_picture_2' => ['nullable', 'boolean'],
-        'remove_picture_3' => ['nullable', 'boolean'],
-    ]);
+        if ($v->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Validation failed.',
+                'errors'  => $v->errors(),
+            ], 422);
+        }
 
-    if ($v->fails()) {
-        return response()->json([
-            'status'  => 'error',
-            'message' => 'Validation failed.',
-            'errors'  => $v->errors(),
-        ], 422);
-    }
-
-    $exists = DB::table('data_ml_sport')->where('code', $code)->exists();
-    if (! $exists) {
-        return response()->json([
-            'status'  => 'error',
-            'message' => 'Data not found.',
-        ], 404);
-    }
+        $exists = DB::table('data_ml_sport')->where('code', $code)->exists();
+        if (! $exists) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Data not found.',
+            ], 404);
+        }
 
         $d       = $v->validated();
         $payload = ['updated_at' => now()];
@@ -573,6 +583,15 @@ public function updateSportMeta(Request $request, string $code): JsonResponse
         }
         if ($request->has('long_text')) {
             $payload['long_text'] = $d['long_text'] ?? null;
+        }
+        if ($request->has('risk_level_high')) {
+            $payload['risk_level_high'] = $d['risk_level_high'] ?? null;
+        }
+        if ($request->has('risk_level_low')) {
+            $payload['risk_level_low'] = $d['risk_level_low'] ?? null;
+        }
+        if ($request->has('category')) {
+            $payload['category'] = $d['category'];
         }
 
         foreach (['picture_1', 'picture_2', 'picture_3'] as $key) {
@@ -587,6 +606,8 @@ public function updateSportMeta(Request $request, string $code): JsonResponse
         DB::table('data_ml_sport')->where('code', $code)->update($payload);
 
         $row = DB::table('data_ml_sport')->where('code', $code)->first();
+
+        $this->triggerMlSync();
 
         return response()->json([
             'status'  => 'success',
@@ -609,6 +630,8 @@ public function updateSportMeta(Request $request, string $code): JsonResponse
                 'message' => 'Data not found.',
             ], 404);
         }
+
+        $this->triggerMlSync();
 
         return response()->json([
             'status'  => 'success',
@@ -761,4 +784,67 @@ public function deleteSportImages(
         'data'    => $updated,
     ], 200);
 }
+
+
+/**
+ * Dipanggil oleh ml-service-sport-new untuk rebuild rules.yml.
+ * SENGAJA tanpa AuthToken::assertRoleFresh — endpoint ini untuk
+ * dipanggil service-to-service, bukan dari dashboard admin.
+ * TODO: tambahkan validasi token/shared-secret sebelum production.
+ */
+public function getSportRulesForSync(): JsonResponse
+{
+    $rows = DB::table('data_ml_sport')
+        ->select(['code', 'name', 'category', 'risk_level_high', 'risk_level_low', 'updated_at'])
+        ->orderBy('code')
+        ->get();
+
+    return response()->json([
+        'status' => 'success',
+        'data'   => $rows,
+    ], 200);
+}
+
+public function syncMlRules(Request $request): JsonResponse
+{
+    AuthToken::assertRoleFresh($request, 'admin');
+
+    $result = $this->triggerMlSync();
+
+    if (! $result['success']) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => $result['message'],
+        ], 502);
+    }
+
+    return response()->json([
+        'status'  => 'success',
+        'message' => $result['message'],
+    ], 200);
+}
+
+private function triggerMlSync(): array 
+{
+    $url = rtrim(env('URL_ML_SPORTS', 'http://72.61.213.163:8080'), '/') . '/sync-rules';
+
+    try {
+        $resp = Http::timeout(10)->post($url);
+
+        if (! $resp->ok()) {
+            Log::error('Sync ke ml-service gagal.', [
+                'status' => $resp->status(),
+                'body'   => $resp->body(),
+            ]);
+
+            return ['success' => false, 'message' => $resp->json('detail') ?? ('HTTP ' . $resp->status())];
+        }
+
+        return ['success' => true, 'message' => $resp->json('message') ?? 'Sync berhasil.'];
+    } catch (\Throwable $e) {
+        Log::error('Sync ke ml-service gagal (exception).', ['error' => $e->getMessage()]);
+        return ['success' => false, 'message' => $e->getMessage()];
+    }
+}
+
 }

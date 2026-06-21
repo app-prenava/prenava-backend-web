@@ -452,3 +452,5 @@ Route::get('/stunting/recipes/by-id/{recipe_id}', [FoodRecommendationController:
 Route::get('/stunting/recipes/{food_id}', [FoodRecommendationController::class, 'recipe'])
     ->whereNumber('food_id');
 
+Route::post('/recomendation/sport-sync', [RecomendationSportController::class, 'syncMlRules']);
+Route::get('/ml-service/sport-rules', [RecomendationSportController::class, 'getSportRulesForSync']);
