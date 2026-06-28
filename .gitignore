@@ -23,6 +23,5 @@ yarn-error.log
 /.zed
 /e IlluminateSupportFacadesRedis
 
-/.agent.DS_Store
+/.agents
 **/.DS_Store
-/.agent
