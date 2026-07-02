@@ -38,6 +38,9 @@ use App\Http\Controllers\CatatanIbuController;
 use App\Http\Controllers\HistoryLogController;
 use App\Http\Controllers\DailyFeatureController;
 use App\Http\Controllers\LocalWisdomController;
+use App\Http\Controllers\FoodRecommendationController;
+use App\Http\Controllers\MealPlanController;
+use App\Http\Controllers\UserFoodPreferenceController;
 
 // Bidan Subscription Controllers
 use App\Http\Controllers\SubscriptionController;
@@ -400,4 +403,16 @@ Route::prefix('user')->middleware(['auth:api'])->group(function () {
     Route::get('/local-wisdom', [LocalWisdomController::class, 'index']);
     Route::post('/local-wisdom/toggle', [LocalWisdomController::class, 'toggle']);
     Route::get('/local-wisdom/analytics', [LocalWisdomController::class, 'analytics']);
+
+    // Food Preferences
+    Route::get('/food-preferences', [UserFoodPreferenceController::class, 'getPreference']);
+    Route::post('/food-preferences', [UserFoodPreferenceController::class, 'savePreference']);
+
+    // Food Recommendations
+    Route::get('/food-recommendations', [FoodRecommendationController::class, 'getRecommendations']);
+
+    // Meal Plan
+    Route::get('/meal-plan/active', [MealPlanController::class, 'getActiveMealPlan']);
+    Route::post('/meal-plan/generate', [MealPlanController::class, 'generateMealPlan']);
+    Route::post('/meal-plan/{id}/items', [MealPlanController::class, 'saveMealPlanItems']);
 });
