@@ -290,14 +290,49 @@ class AdminAccountController extends Controller
             });
         }
 
-        $ibuHamil = $query->get()->map(function ($row) {
+        $userIds = $query->pluck('users.user_id')->toArray();
+
+        // Ambil data history secara bulk (untuk menghindari N+1 query problem)
+        $anemiaHistory = DB::table('deteksi_penyakit')
+            ->whereIn('user_id', $userIds)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->groupBy('user_id');
+
+        $depressionHistory = DB::table('prediksi_depresi')
+            ->whereIn('user_id', $userIds)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->groupBy('user_id');
+            
+        $stuntingHistory = DB::table('stunting_predictions')
+            ->whereIn('user_id', $userIds)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->groupBy('user_id');
+
+        $ibuHamil = $query->get()->map(function ($row) use ($anemiaHistory, $depressionHistory, $stuntingHistory) {
             $row->photo_url = \App\Helpers\PhotoHelper::transformPhotoUrl($row->photo, 'public');
+            
+            // Masukkan 5 history terakhir untuk masing-masing deteksi
+            $row->anemia_history = isset($anemiaHistory[$row->user_id]) 
+                ? $anemiaHistory[$row->user_id]->take(5)->values() 
+                : [];
+                
+            $row->depression_history = isset($depressionHistory[$row->user_id]) 
+                ? $depressionHistory[$row->user_id]->take(5)->values() 
+                : [];
+                
+            $row->stunting_history = isset($stuntingHistory[$row->user_id]) 
+                ? $stuntingHistory[$row->user_id]->take(5)->values() 
+                : [];
+                
             return $row;
         });
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Daftar ibu hamil berhasil diambil.',
+            'message' => 'Daftar ibu hamil beserta riwayat medis berhasil diambil.',
             'data'    => $ibuHamil,
         ]);
     }
