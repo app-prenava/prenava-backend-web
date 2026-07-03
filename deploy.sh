@@ -1,28 +1,45 @@
 #!/bin/bash
 set -e
 
-echo "Deploying application..."
+echo "🚀 Deploying application..."
 
-# Pull the latest changes from GitHub
+# 1. Pull the latest changes from GitHub
+echo "📥 Pulling latest code..."
 git reset --hard
 git pull origin master
 
-# Build and start the containers in detached mode
-docker compose -f docker-compose.yml up -d --build app
+# 2. Build dan start SEMUA container (app, mysql, redis, phpmyadmin)
+#    --build hanya rebuild image yang berubah, tanpa menghentikan mysql/redis
+echo "🔨 Building and starting containers..."
+docker compose up -d --build
 
-# Run composer install, config cache, and migrations inside the running app container
-docker compose -f docker-compose.yml exec -T app composer install --no-dev --optimize-autoloader
-docker compose -f docker-compose.yml exec -T app php artisan config:cache
-docker compose -f docker-compose.yml exec -T app php artisan route:cache
-docker compose -f docker-compose.yml exec -T app php artisan view:cache
-echo "Running database migrations..."
-docker compose -f docker-compose.yml exec -T app php artisan migrate --force --no-interaction
+# 3. Tunggu sampai container app benar-benar sehat dan siap
+#    (start-service.sh di dalam container sudah menangani:
+#     - menunggu MySQL ready
+#     - menjalankan migrate
+#     - menjalankan FrankenPHP)
+echo "⏳ Waiting for app container to be ready..."
+sleep 15
 
-# Seeders for research data (Tugas Akhir)
-echo "Seeding research data..."
-docker compose -f docker-compose.yml exec -T app php artisan db:seed --class=LocalWisdomSeeder --force
-docker compose -f docker-compose.yml exec -T app php artisan db:seed --class=DailyTaskSeeder --force
+# 4. Verifikasi container berjalan
+if ! docker compose ps --format json | grep -q '"nuri-backend-app"'; then
+  echo "❌ App container failed to start! Checking logs..."
+  docker compose logs --tail=50 app
+  exit 1
+fi
 
-docker compose -f docker-compose.yml exec -T app php artisan storage:link
+# 5. Cache config, route, dan view (ringan, aman dijalankan setelah app siap)
+echo "⚡ Caching configuration..."
+docker compose exec -T app php artisan config:cache
+docker compose exec -T app php artisan route:cache
+docker compose exec -T app php artisan view:cache
 
-echo "Deployment finished!"
+# 6. Seeders for research data (Tugas Akhir)
+echo "🌱 Seeding research data..."
+docker compose exec -T app php artisan db:seed --class=LocalWisdomSeeder --force
+docker compose exec -T app php artisan db:seed --class=DailyTaskSeeder --force
+
+# 7. Pastikan storage link aktif
+docker compose exec -T app php artisan storage:link 2>/dev/null || true
+
+echo "✅ Deployment finished successfully!"
