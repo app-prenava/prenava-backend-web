@@ -231,4 +231,20 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->hasMany(StuntingPrediction::class, 'user_id', 'user_id');
     }
+
+    /**
+     * Get user depression predictions (history)
+     */
+    public function prediksiDepresi(): HasMany
+    {
+        return $this->hasMany(PrediksiDepresi::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Get user anemia detections (history)
+     */
+    public function deteksiPenyakit(): HasMany
+    {
+        return $this->hasMany(DeteksiPenyakit::class, 'user_id', 'user_id');
+    }
 }
