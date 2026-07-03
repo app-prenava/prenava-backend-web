@@ -55,7 +55,6 @@ Route::post('/recomendation/sport-sync', [RecomendationSportController::class, '
 Route::get('/ml-service/sport-rules', [RecomendationSportController::class, 'getSportRulesForSync']);
 
 // Endpoint Prediksi Stunting
-Route::post('/stunting/predict', [StuntingPredictionController::class, 'predict']);
 
 Route::get('/debug/redis-likes', [RedisDebugController::class, 'likes']);
 Route::prefix('parameterized')->group(function () {
@@ -299,6 +298,13 @@ Route::group(['middleware' => 'auth:api'], function () {
 
     // Anemia Eye Scan
     Route::post('/anemia-scan', [App\Http\Controllers\AnemiaScanController::class, 'scan']);
+
+    // Stunting Prediction & Foods
+    Route::get('/stunting/questions', [StuntingPredictionController::class, 'getQuestions']);
+    Route::post('/stunting/predict', [StuntingPredictionController::class, 'predict']);
+    Route::get('/stunting/foods', [StuntingPredictionController::class, 'getFoods']);
+    Route::get('/stunting/history', [StuntingPredictionController::class, 'history']);
+    Route::get('/stunting/history/{id}', [StuntingPredictionController::class, 'historyDetail']);
 });
 
 
