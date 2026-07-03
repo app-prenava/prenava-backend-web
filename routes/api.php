@@ -41,7 +41,7 @@ use App\Http\Controllers\LocalWisdomController;
 use App\Http\Controllers\FoodRecommendationController;
 use App\Http\Controllers\MealPlanController;
 use App\Http\Controllers\UserFoodPreferenceController;
-
+use App\Http\Controllers\StuntingPredictionController;
 // Bidan Subscription Controllers
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\AdminBidanController;
@@ -53,6 +53,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/recomendation/sport-sync', [RecomendationSportController::class, 'syncMlRules']);
 Route::get('/ml-service/sport-rules', [RecomendationSportController::class, 'getSportRulesForSync']);
+
+// Endpoint Prediksi Stunting
+Route::post('/stunting/predict', [StuntingPredictionController::class, 'predict']);
 
 Route::get('/debug/redis-likes', [RedisDebugController::class, 'likes']);
 Route::prefix('parameterized')->group(function () {

@@ -13,16 +13,16 @@ class FirecrawlService
 
     public function __construct()
     {
-        $this->apiKey = config('services.firecrawl.api_key', '');
+        $this->apiKey = (string) config('services.firecrawl.api_key', '');
     }
 
     /**
-     * Search and extract food data from the internet using Firecrawl.
+     * Extract food data from a specific URL to save Firecrawl credits.
      * 
-     * @param string $query The search query (e.g., "Resep masakan sehat ibu hamil dengan harga")
+     * @param string $url The URL of the recipe/food article
      * @return array
      */
-    public function searchAndExtractFood(string $query): array
+    public function extractFoodsFromUrl(string $url): array
     {
         if (empty($this->apiKey)) {
             Log::warning('Firecrawl API key is missing.');
@@ -30,32 +30,31 @@ class FirecrawlService
         }
 
         try {
-            $response = Http::withHeaders([
+            $allFoods = [];
+
+            $extractResponse = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type'  => 'application/json',
-            ])->post($this->baseUrl . '/search', [
-                'query' => $query,
-                'limit' => 10,
-                'scrapeOptions' => [
-                    'formats' => ['json'],
-                    'jsonOptions' => [
-                        'schema' => [
-                            'type' => 'object',
-                            'properties' => [
-                                'foods' => [
-                                    'type' => 'array',
-                                    'items' => [
-                                        'type' => 'object',
-                                        'properties' => [
-                                            'name' => ['type' => 'string', 'description' => 'Nama makanan atau resep'],
-                                            'description' => ['type' => 'string', 'description' => 'Deskripsi singkat atau manfaat untuk ibu hamil'],
-                                            'image_url' => ['type' => 'string', 'description' => 'URL gambar makanan jika ada'],
-                                            'price_estimate' => ['type' => 'number', 'description' => 'Estimasi harga dalam rupiah (angka saja)'],
-                                            'category' => ['type' => 'string', 'description' => 'Kategori (misal: sayuran, protein hewani, buah, dll)'],
-                                            'source_url' => ['type' => 'string', 'description' => 'URL sumber informasi'],
-                                        ],
-                                        'required' => ['name', 'description', 'price_estimate', 'category']
-                                    ]
+            ])->post($this->baseUrl . '/scrape', [
+                'url' => $url,
+                'formats' => ['extract'],
+                'extract' => [
+                    'prompt' => 'Extract food recipes or food items. Include name, description, and price_estimate. Infer category (sayuran, protein hewani, buah, camilan).',
+                    'schema' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'foods' => [
+                                'type' => 'array',
+                                'items' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'name' => ['type' => 'string'],
+                                        'description' => ['type' => 'string'],
+                                        'image_url' => ['type' => 'string', 'nullable' => true],
+                                        'price_estimate' => ['type' => 'number', 'nullable' => true],
+                                        'category' => ['type' => 'string']
+                                    ],
+                                    'required' => ['name', 'description', 'category']
                                 ]
                             ]
                         ]
@@ -63,31 +62,20 @@ class FirecrawlService
                 ]
             ]);
 
-            if ($response->successful()) {
-                $data = $response->json();
+            if ($extractResponse->successful()) {
+                $extractData = $extractResponse->json();
                 
-                // Firecrawl returns an array of search results, some might contain the extracted json
-                $allFoods = [];
-                
-                if (isset($data['data']) && is_array($data['data'])) {
-                    foreach ($data['data'] as $result) {
-                        if (isset($result['json']['foods']) && is_array($result['json']['foods'])) {
-                            foreach ($result['json']['foods'] as $food) {
-                                // Add source url if missing but present in the parent result
-                                if (empty($food['source_url']) && isset($result['metadata']['sourceURL'])) {
-                                    $food['source_url'] = $result['metadata']['sourceURL'];
-                                }
-                                $allFoods[] = $food;
-                            }
-                        }
+                if (isset($extractData['data']['extract']['foods']) && is_array($extractData['data']['extract']['foods'])) {
+                    foreach ($extractData['data']['extract']['foods'] as $food) {
+                        $food['source_url'] = $url;
+                        $allFoods[] = $food;
                     }
                 }
-                
-                return $allFoods;
+            } else {
+                Log::error('Firecrawl Scrape API error for URL ' . $url, ['status' => $extractResponse->status(), 'body' => $extractResponse->body()]);
             }
-
-            Log::error('Firecrawl API error', ['status' => $response->status(), 'body' => $response->body()]);
-            return [];
+            
+            return $allFoods;
         } catch (Exception $e) {
             Log::error('Firecrawl Exception', ['message' => $e->getMessage()]);
             return [];
