@@ -147,7 +147,7 @@ class StuntingPredictionController extends Controller
             // agar model HANYA bisa menganalisis berdasarkan kondisi Ibu Hamil.
             $payload['child_age_years'] = 0;      // Bayi baru lahir
             $payload['birth_weight'] = 3.2;       // Berat ideal 3.2 kg
-            $payload['child_height'] = 50.0;      // Panjang ideal 50 cm
+            $payload['child_height'] = 64.5;      // Mean/Rata-rata dataset (64.5 cm) agar Z-score netral
             $payload['child_gender'] = 1;         // Laki-laki default
             $payload['birth_order'] = 1;          // Anak pertama
 
