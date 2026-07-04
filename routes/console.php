@@ -36,3 +36,8 @@ Schedule::command('wallets:sync-views')
     ->dailyAt(sprintf('%02d:%02d', $hour, $minute))
     ->withoutOverlapping()
     ->runInBackground();
+
+Schedule::command('crawl:foods')
+    ->twiceMonthly(1, 16, '00:00')
+    ->withoutOverlapping()
+    ->runInBackground();

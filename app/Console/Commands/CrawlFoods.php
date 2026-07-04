@@ -54,28 +54,25 @@ class CrawlFoods extends Command
             $this->info('Found ' . count($results) . ' items.');
             
             foreach ($results as $item) {
-                // For testing locally without DB, save to array
-                $allScrapedData[] = [
-                    'name' => $item['name'],
-                    'description' => $item['description'] ?? null,
-                    'image_url' => $item['image_url'] ?? null,
-                    'price_estimate' => isset($item['price_estimate']) ? (float)$item['price_estimate'] : null,
-                    'category' => $item['category'] ?? null,
-                    'source_url' => $item['source_url'] ?? null,
-                ];
+                if (empty($item['name'])) continue;
+
+                \App\Models\ScrapedFood::updateOrCreate(
+                    ['name' => $item['name']],
+                    [
+                        'description' => $item['description'] ?? null,
+                        'image_url' => $item['image_url'] ?? null,
+                        'price_estimate' => isset($item['price_estimate']) ? (float)$item['price_estimate'] : null,
+                        'category' => $item['category'] ?? null,
+                        'source_url' => $item['source_url'] ?? null,
+                    ]
+                );
                 $totalSaved++;
             }
-            
-            // Simpan bertahap ke file JSON
-            \Illuminate\Support\Facades\File::put(
-                storage_path('app/scraped_foods_test.json'),
-                json_encode($allScrapedData, JSON_PRETTY_PRINT)
-            );
             
             // Sleep to avoid hitting rate limits
             sleep(2);
         }
         
-        $this->info("Crawl completed! Saved {$totalSaved} items to storage/app/scraped_foods_test.json.");
+        $this->info("Crawl completed! Saved {$totalSaved} items to ScrapedFood database table.");
     }
 }
