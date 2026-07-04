@@ -230,22 +230,47 @@ class StuntingPredictionController extends Controller
     /**
      * Mengambil riwayat prediksi user
      * GET /api/stunting/history
+     * 
+     * OPSI 1: Bidan bisa lihat SEMUA data
+     * User lain hanya lihat data sendiri
      */
     public function history()
     {
-        $userId = Auth::id();
-        $history = StuntingPrediction::where('user_id', $userId)
-            ->where('status', StuntingPrediction::STATUS_SUCCESS)
-            ->latest()
-            ->get()
+        $user = Auth::user();
+        
+        // OPSI 1: Bidan bisa lihat SEMUA data
+        if ($user->role === 'bidan') {
+            $query = StuntingPrediction::with('user:user_id,name,email')
+                ->where('status', StuntingPrediction::STATUS_SUCCESS)
+                ->latest();
+        } else {
+            // User lain hanya lihat data sendiri
+            $userId = Auth::id();
+            $query = StuntingPrediction::where('user_id', $userId)
+                ->where('status', StuntingPrediction::STATUS_SUCCESS)
+                ->latest();
+        }
+        
+        $history = $query->get()
             ->map(function ($item) {
-                return [
+                $data = [
                     'id' => $item->id,
                     'date' => $item->created_at->toIso8601String(),
                     'status' => $item->status,
                     'riskLevel' => $item->prediction,
                     'score' => (float) $item->probability,
                 ];
+                
+                // Tambahkan info user jika bidan mengakses
+                if ($item->user) {
+                    $data['user'] = [
+                        'user_id' => $item->user->user_id,
+                        'name' => $item->user->name,
+                        'email' => $item->user->email,
+                    ];
+                }
+                
+                return $data;
             });
 
         return response()->json([
@@ -257,13 +282,25 @@ class StuntingPredictionController extends Controller
     /**
      * Mengambil detail riwayat tertentu
      * GET /api/stunting/history/{id}
+     * 
+     * OPSI 1: Bidan bisa lihat SEMUA data
+     * User lain hanya lihat data sendiri
      */
     public function historyDetail($id)
     {
-        $userId = Auth::id();
-        $prediction = StuntingPrediction::where('user_id', $userId)
-            ->where('id', $id)
-            ->first();
+        $user = Auth::user();
+        
+        // OPSI 1: Bidan bisa lihat SEMUA data, user lain hanya data sendiri
+        if ($user->role === 'bidan') {
+            $prediction = StuntingPrediction::with('user:user_id,name,email')
+                ->where('id', $id)
+                ->first();
+        } else {
+            $userId = Auth::id();
+            $prediction = StuntingPrediction::where('user_id', $userId)
+                ->where('id', $id)
+                ->first();
+        }
 
         if (!$prediction) {
             return response()->json([
@@ -283,6 +320,15 @@ class StuntingPredictionController extends Controller
             'recommendation' => $recommendationText,
             'predictionId' => $prediction->id,
         ];
+        
+        // Tambahkan info user jika bidan mengakses
+        if ($user->role === 'bidan' && $prediction->user) {
+            $outputData['user'] = [
+                'user_id' => $prediction->user->user_id,
+                'name' => $prediction->user->name,
+                'email' => $prediction->user->email,
+            ];
+        }
 
         return response()->json([
             'success' => true,
