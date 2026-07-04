@@ -1,0 +1,378 @@
+[
+    {
+        "name": "Sayur Segar",
+        "description": "Fresh vegetables available for sale.",
+        "image_url": "",
+        "price_estimate": 0,
+        "category": "sayuran",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/sayuran"
+    },
+    {
+        "name": "Buah Segar",
+        "description": "Fresh fruits available for sale.",
+        "image_url": "",
+        "price_estimate": 0,
+        "category": "buah",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/sayuran"
+    },
+    {
+        "name": "Protein",
+        "description": "Various protein products including meat and fish.",
+        "image_url": "",
+        "price_estimate": 0,
+        "category": "protein hewani",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/sayuran"
+    },
+    {
+        "name": "Makanan Ringan",
+        "description": "Snacks available for purchase.",
+        "image_url": "",
+        "price_estimate": 0,
+        "category": "camilan",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/sayuran"
+    },
+    {
+        "name": "Sayur Segar",
+        "description": "Fresh vegetables available for sale.",
+        "image_url": "https:\/\/img.sayurbox.com\/99c8583b399f585483e139de749066b2?tr=f-auto,w-48",
+        "price_estimate": 30,
+        "category": "sayuran",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/buah"
+    },
+    {
+        "name": "Buah Segar",
+        "description": "Fresh fruits available for sale.",
+        "image_url": "https:\/\/img.sayurbox.com\/05f8ad57c8e68374b2279c5bf7ccb66d?tr=f-auto,w-48",
+        "price_estimate": 20,
+        "category": "buah",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/buah"
+    },
+    {
+        "name": "Protein",
+        "description": "A variety of protein sources available.",
+        "image_url": "https:\/\/img.sayurbox.com\/99c620094c2506d59614d9f23b2f0ed7?tr=f-auto,w-48",
+        "price_estimate": 50,
+        "category": "protein hewani",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/buah"
+    },
+    {
+        "name": "Siap Saji",
+        "description": "Ready-to-eat meal options available.",
+        "image_url": "https:\/\/img.sayurbox.com\/4dd71f91ebb314f3cb2f3878268f2dc9?tr=f-auto,w-48",
+        "price_estimate": 40,
+        "category": "siap saji",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/buah"
+    },
+    {
+        "name": "Makanan Ringan",
+        "description": "Light snacks for quick bites.",
+        "image_url": "https:\/\/img.sayurbox.com\/8b9fcaf51d54fd86bb1d43d859b31cb2?tr=f-auto,w-48",
+        "price_estimate": 15,
+        "category": "camilan",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/buah"
+    },
+    {
+        "name": "Sayur Segar",
+        "description": "Fresh vegetables available for sale.",
+        "image_url": "https:\/\/img.sayurbox.com\/99c8583b399f585483e139de749066b2?tr=f-auto,w-48",
+        "price_estimate": 10,
+        "category": "sayuran",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/daging-ayam"
+    },
+    {
+        "name": "Buah Segar",
+        "description": "Fresh fruits available for sale.",
+        "image_url": "https:\/\/img.sayurbox.com\/05f8ad57c8e68374b2279c5bf7ccb66d?tr=f-auto,w-48",
+        "price_estimate": 15,
+        "category": "buah",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/daging-ayam"
+    },
+    {
+        "name": "Protein Segar",
+        "description": "Fresh protein items available for sale.",
+        "image_url": "https:\/\/img.sayurbox.com\/99c620094c2506d59614d9f23b2f0ed7?tr=f-auto,w-48",
+        "price_estimate": 20,
+        "category": "protein hewani",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/daging-ayam"
+    },
+    {
+        "name": "Makanan Ringan",
+        "description": "Snack items available for sale.",
+        "image_url": "https:\/\/img.sayurbox.com\/4b3836b12d205344264f192a8ce6f6f7?tr=f-auto,w-48",
+        "price_estimate": 5,
+        "category": "camilan",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/daging-ayam"
+    },
+    {
+        "name": "Bumbu & Saus",
+        "description": "Various spices and sauces available for sale.",
+        "image_url": "https:\/\/img.sayurbox.com\/3f7e88cc697b266e015caab567e1401d?tr=f-auto,w-48",
+        "price_estimate": 8,
+        "category": "sayuran",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/daging-ayam"
+    },
+    {
+        "name": "Sayur",
+        "description": "Fresh vegetables available for purchase.",
+        "image_url": "https:\/\/img.sayurbox.com\/99c8583b399f585483e139de749066b2?tr=f-auto,w-48",
+        "price_estimate": 10,
+        "category": "sayuran",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/seafood"
+    },
+    {
+        "name": "Buah",
+        "description": "Fresh fruits available for purchase.",
+        "image_url": "https:\/\/img.sayurbox.com\/05f8ad57c8e68374b2279c5bf7ccb66d?tr=f-auto,w-48",
+        "price_estimate": 15,
+        "category": "buah",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/seafood"
+    },
+    {
+        "name": "Protein",
+        "description": "Various protein sources available.",
+        "image_url": "https:\/\/img.sayurbox.com\/99c620094c2506d59614d9f23b2f0ed7?tr=f-auto,w-48",
+        "price_estimate": 20,
+        "category": "protein hewani",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/seafood"
+    },
+    {
+        "name": "Siap Saji",
+        "description": "Ready-to-eat meals available.",
+        "image_url": "https:\/\/img.sayurbox.com\/4dd71f91ebb314f3cb2f3878268f2dc9?tr=f-auto,w-48",
+        "price_estimate": 25,
+        "category": "siap saji",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/seafood"
+    },
+    {
+        "name": "Makanan Ringan",
+        "description": "Snacks available for purchase.",
+        "image_url": "https:\/\/img.sayurbox.com\/7040657be4688a4e6b5f5e79607c7ce8?tr=f-auto,w-48",
+        "price_estimate": 5,
+        "category": "camilan",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/seafood"
+    },
+    {
+        "name": "Sayur",
+        "description": "Various fresh vegetables available for sale.",
+        "image_url": "https:\/\/img.sayurbox.com\/99c8583b399f585483e139de749066b2?tr=f-auto,w-48",
+        "price_estimate": 3,
+        "category": "sayuran",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/protein-telur"
+    },
+    {
+        "name": "Buah",
+        "description": "A selection of fresh fruits for sale.",
+        "image_url": "https:\/\/img.sayurbox.com\/05f8ad57c8e68374b2279c5bf7ccb66d?tr=f-auto,w-48",
+        "price_estimate": 2.5,
+        "category": "buah",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/protein-telur"
+    },
+    {
+        "name": "Protein",
+        "description": "Assorted protein items including meats and eggs.",
+        "image_url": "https:\/\/img.sayurbox.com\/99c620094c2506d59614d9f23b2f0ed7?tr=f-auto,w-48",
+        "price_estimate": 5,
+        "category": "protein hewani",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/protein-telur"
+    },
+    {
+        "name": "Makanan Ringan",
+        "description": "Snacks and light meals for easy consumption.",
+        "image_url": "https:\/\/img.sayurbox.com\/7040657be4688a4e6b5f5e79607c7ce8?tr=f-auto,w-48",
+        "price_estimate": 1.5,
+        "category": "camilan",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/protein-telur"
+    },
+    {
+        "name": "Bumbu & Saus",
+        "description": "Various spices and sauces for cooking and seasoning.",
+        "image_url": "https:\/\/img.sayurbox.com\/3f7e88cc697b266e015caab567e1401d?tr=f-auto,w-48",
+        "price_estimate": 1,
+        "category": "camilan",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/protein-telur"
+    },
+    {
+        "name": "Siap Saji",
+        "description": "Ready-to-eat meals for convenience.",
+        "image_url": "https:\/\/img.sayurbox.com\/4dd71f91ebb314f3cb2f3878268f2dc9?tr=f-auto,w-48",
+        "price_estimate": 6,
+        "category": "camilan",
+        "source_url": "https:\/\/www.sayurbox.com\/category\/protein-telur"
+    },
+    {
+        "name": "Benih Unggul Bibit Biji Sayur Kangkung",
+        "description": "Benih Sayur Sayuran Bibit Benih Tanaman Sayur Kangkung Segar, Renyah, Cepat Tumbuh, Kualitas Terjaga, Benih Premium, Mudah Tumbuh, Lebat.",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-aphluv4xwc-sg\/8fc73bb964754408ad21cd1a1633fae7~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg?lk3s=97278606&x-expires=1783064201&x-signature=TRUJerItoZ2J%2BsFHfHO4hiZ10x8%3D&x-signature-webp=EWtUIb1CcMDZKJpDa4c%2BMtnwUxo%3D",
+        "price_estimate": 13000,
+        "category": "sayuran",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/sayur-segar-sayuran"
+    },
+    {
+        "name": "Benih Unggul Sayuran Infarm Kailan Wid Cai",
+        "description": "Benih Bibit Sayuran, Bibit Tanaman Kailan, Bibit Sayur, Benih Tanaman, Biji Benih Sayur Kailan Infarm, Ribuan Benih Seribuan.",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-aphluv4xwc-sg\/761d4f899ff14c13bfeeeaea81a9c1e2~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg?lk3s=97278606&x-expires=1783064201&x-signature=UZ%2BBkNg8CVe%2FX2RMEIqr2TA%2FWb4%3D&x-signature-webp=Ag5k41ug%2FEny6eY6qFEZUwybkJY%3D",
+        "price_estimate": 15000,
+        "category": "sayuran",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/sayur-segar-sayuran"
+    },
+    {
+        "name": "Benih Unggul Tomat Royal Mato",
+        "description": "Buah Bulat Merah Cerah, Tomat Manis Segar, Biji Tanaman Sayur Sayuran, Benih Buah Tomat, Benih Premium Unggul, Biji Tomat F1 Berkualitas Tinggi.",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-aphluv4xwc-sg\/2c0b1ed51362411488609f695efa3a3c~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg?lk3s=97278606&x-expires=1783064201&x-signature=oIjE97nOq4y288iZcj0nuzYLL3s%3D&x-signature-webp=RyRQe5V60ps%2FKXrae4V3dgX4AcM%3D",
+        "price_estimate": 15000,
+        "category": "buah",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/sayur-segar-sayuran"
+    },
+    {
+        "name": "Benih Terong Bibit Tanaman Sayur Terong",
+        "description": "Bulat Hijau, Manis, Benih Sayuran Berkualitas, Bibit Biji Tanaman Terong, Benih F1 Kualitas No.1.",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-aphluv4xwc-sg\/79da1a81a5a84c0dae96c0b5deca73fc~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg?lk3s=97278606&x-expires=1783064201&x-signature=j8Ar1zzjeQyJF6o9D6d4tKHFhag%3D&x-signature-webp=SaOErLtZkbI%2FsDPcU15mzfvTM%2FU%3D",
+        "price_estimate": 16000,
+        "category": "sayuran",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/sayur-segar-sayuran"
+    },
+    {
+        "name": "Sayur Segar Wortel Lokal",
+        "description": "Sayuran Segar Wortel Fresh, Sayuran Murah.",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-aphluv4xwc-sg\/img\/VqbcmM\/2020\/10\/9\/d25a8eb3-ece0-4a68-9252-79c046a27d0f.png~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg?lk3s=97278606&x-expires=1783064201&x-signature=9MyqzTeYgPYURreoL1YMaE24bAQ%3D&x-signature-webp=zcxw7ryGuni%2B%2Fg6rh700bTxKud4%3D",
+        "price_estimate": 4000,
+        "category": "sayuran",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/sayur-segar-sayuran"
+    },
+    {
+        "name": "TOMAT LOKAL",
+        "description": "Berat 250 Gram, Sayur Sayuran Segar.",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-aphluv4xwc-sg\/img\/VqbcmM\/2023\/2\/14\/677bf1d5-0e5b-4377-8553-4ac7c80b7a9c.jpg~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg?lk3s=97278606&x-expires=1783064201&x-signature=%2FGT8jg9KRa%2FPJ7O2q294ae39Ow0%3D&x-signature-webp=KWaiqIAEFchA96wgN%2B7T1TIJXQo%3D",
+        "price_estimate": 6000,
+        "category": "sayuran",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/sayur-segar-sayuran"
+    },
+    {
+        "name": "Bite Of - Kombo 5 Daging Beku Kering 40g",
+        "description": "Rasa Ayam\/Salmon\/Bebek\/Catnip\/Hati Ayam\/Kuning Telur\/Daging Segar\/Shisamo",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-aphluv4xwc-sg\/953c2729a482493eb3dd237d697017d0~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg",
+        "price_estimate": 225249,
+        "category": "protein hewani",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/daging-ayam-segar"
+    },
+    {
+        "name": "FOLOPETS Snack Anjing Dental Stick",
+        "description": "Cemilan Sehat dari Daging Segar (Ayam, Sapi, Ikan)",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-aphluv4xwc-sg\/4cabae9302d540b38312a9408c9476cf~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg",
+        "price_estimate": 21777,
+        "category": "camilan",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/daging-ayam-segar"
+    },
+    {
+        "name": "JoyBite Dog Treats Rasa Susu Ayam Daging",
+        "description": "Camilan Anjing Berkualitas Tinggi untuk Kesehatan Gigi & Tulang - Snack Harian Segar & Bergizi",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-aphluv4xwc-sg\/e43d2bc72f534acea7de845c79fb5461~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg",
+        "price_estimate": 24700,
+        "category": "camilan",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/daging-ayam-segar"
+    },
+    {
+        "name": "Kombo 2 rasa Bite Of Wild Daging Beku-Kering 40g",
+        "description": "Rasa Hati Ayam\/Kuning Telur\/Daging Segar, tanpa Pengawet dan cocok untuk segala usia",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-aphluv4xwc-sg\/768fa3ae02b94d28bb92a5a193f7b41a~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg",
+        "price_estimate": 61639,
+        "category": "protein hewani",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/daging-ayam-segar"
+    },
+    {
+        "name": "Bite Of Wild Daging Beku-Kering 40g",
+        "description": "Rasa Ayam\/Salmon\/Bebek\/Catnip\/Hati Ayam\/Kuning Telur\/Daging Segar\/Shisamo, Tanpa pengawet dan cocok untuk segala usia",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-aphluv4xwc-sg\/46b4a6815284498c9289ca48ab6f4bf8~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg",
+        "price_estimate": 31279,
+        "category": "protein hewani",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/daging-ayam-segar"
+    },
+    {
+        "name": "FOLOPETS Snack Anjing Treat Stick",
+        "description": "Cemilan Sehat dari Daging Segar Ayam, Sapi & Ikan! (Doggy Dental Stick untuk Kesehatan Gigi, Cocok untuk Semua Ras & Usia, Bebas Bahan Kimia)",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-aphluv4xwc-sg\/b739e5de765f46baa641a297f88b3e22~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg",
+        "price_estimate": 25021,
+        "category": "camilan",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/daging-ayam-segar"
+    },
+    {
+        "name": "Dada Ayam Fillet",
+        "description": "Daging Ayam Tanpa Tulang | Boneless (Tanpa Kulit) Segar",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-zr7vqa5nfb-sg\/img\/ic_promo-discount.png~tplv-zr7vqa5nfb-image.image",
+        "price_estimate": 76580,
+        "category": "protein hewani",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/daging-ayam-segar"
+    },
+    {
+        "name": "Kongke Tofu Telur Ayam 140 Gr",
+        "description": "Tofu made from chicken eggs.",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-aphluv4xwc-sg\/img\/hDjmkQ\/2021\/5\/16\/affd016a-6944-494c-bd09-905032ef538e.jpg~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg?lk3s=97278606&x-expires=1783064327&x-signature=wVf30zQePK8JXc0wbS7ukooqVpI%3D&x-signature-webp=F52IWCO8F2Vx2OLXvw99%2B6T7Me0%3D",
+        "price_estimate": 12510,
+        "category": "protein hewani",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/telur-ayam"
+    },
+    {
+        "name": "TATAKAN TELOR - Tray Telor Plastik",
+        "description": "Plastic egg tray for storing eggs.",
+        "image_url": "https:\/\/p16-images-common-sign-sg.tokopedia-static.net\/tos-maliva-i-o3syd03w52-us\/6921315f58fa41159764d54d688622ec~tplv-o3syd03w52-resize-jpeg:200:200.jpeg?lk3s=97278606&x-expires=1783064327&x-signature=yGlHR%2BZ%2FgWDZ2zzvHUxN%2BRfxMis%3D&x-signature-webp=iI9%2BfbcGuxUfxwwfE1su8Ni%2Fx9k%3D",
+        "price_estimate": 13000,
+        "category": "dapur",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/telur-ayam"
+    },
+    {
+        "name": "PEDIGREE Makanan Anak Anjing NutriDefense Rasa Ayam Telur dan Susu 1.3kg",
+        "description": "Dog food with chicken, egg, and milk flavor.",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-zr7vqa5nfb-sg\/img\/hDjmkQ\/2021\/5\/16\/affd016a-6944-494c-bd09-905032ef538e.jpg~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg?lk3s=97278606&x-expires=1783064327&x-signature=wVf30zQePK8JXc0wbS7ukooqVpI%3D&x-signature-webp=F52IWCO8F2Vx2OLXvw99%2B6T7Me0%3D",
+        "price_estimate": 155823,
+        "category": "camilan",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/telur-ayam"
+    },
+    {
+        "name": "Bite Of - Kombo 5 Daging Beku Kering 40g",
+        "description": "Dried meat combo snacks for pets.",
+        "image_url": "https:\/\/p16-images-sign-sg.tokopedia-static.net\/tos-alisg-i-aphluv4xwc-sg\/953c2729a482493eb3dd237d697017d0~tplv-aphluv4xwc-white-pad-v1:200:200.jpeg?lk3s=97278606&x-expires=1783064327&x-signature=GDTsxZqUQg%2FAGUKqROUwdPo7Sno%3D&x-signature-webp=qS%2FCaijha2MMRYRk6fOyq%2FKgrsU%3D",
+        "price_estimate": 225249,
+        "category": "camilan",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/telur-ayam"
+    },
+    {
+        "name": "Snack Kucing - Camilan dada ayam dan kuning telur",
+        "description": "Healthy and delicious snack for cats made from chicken breast and egg yolk.",
+        "image_url": "https:\/\/lf-web-assets.tokopedia-static.net\/obj\/tokopedia-web-sg\/zeus_v2\/85cc883d.svg",
+        "price_estimate": 8900,
+        "category": "camilan",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/telur-ayam"
+    },
+    {
+        "name": "Obituari Sebutir Telur Seekor Ayam dan Babi",
+        "description": "Book about eggs and pigs.",
+        "image_url": "https:\/\/lf-web-assets.tokopedia-static.net\/obj\/tokopedia-web-sg\/zeus_v2\/85cc883d.svg",
+        "price_estimate": 56000,
+        "category": "sayuran",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/telur-ayam"
+    },
+    {
+        "name": "Royco Bumbu Siap Pakai Ayam Saus Telur Asin",
+        "description": "Ready to use seasoning for chicken with salted egg sauce.",
+        "image_url": "https:\/\/lf-web-assets.tokopedia-static.net\/obj\/tokopedia-web-sg\/zeus_v2\/85cc883d.svg",
+        "price_estimate": 7350,
+        "category": "bumbu",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/telur-ayam"
+    },
+    {
+        "name": "Kong Kee Tofu Telur Ayam 140 Gram",
+        "description": "Premium chicken egg tofu.",
+        "image_url": "https:\/\/lf-web-assets.tokopedia-static.net\/obj\/tokopedia-web-sg\/zeus_v2\/85cc883d.svg",
+        "price_estimate": 9690,
+        "category": "protein hewani",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/telur-ayam"
+    },
+    {
+        "name": "Yoli Toys Telur Ayam Mainan Plastik Jala Isi 20 Pcs",
+        "description": "Plastic toy eggs for kids.",
+        "image_url": "https:\/\/lf-web-assets.tokopedia-static.net\/obj\/tokopedia-web-sg\/zeus_v2\/85cc883d.svg",
+        "price_estimate": 19999,
+        "category": "camilan",
+        "source_url": "https:\/\/www.tokopedia.com\/find\/telur-ayam"
+    }
+]
