@@ -157,7 +157,7 @@ class StuntingPredictionController extends Controller
                 $result = $response->json();
                 
                 $riskLevel = $result['prediction_class'] ?? 0;
-                $score = $result['stunting_risk'] ?? 0.0;
+                $score = $result['probability'] ?? 0.0;
                 $riskLabel = $riskLevel == 1 ? "Tinggi" : ($riskLevel == 2 ? "Sedang" : "Rendah");
                 
                 $recommendationText = "Kondisi kehamilan Anda sehat. Pertahankan pola makan bergizi dan rutin periksa kehamilan (ANC).";
