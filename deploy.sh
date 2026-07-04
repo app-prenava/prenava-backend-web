@@ -20,7 +20,11 @@ sleep 30
 echo "🔍 Checking container status..."
 docker compose ps
 
-# 5. Cache config, route, dan view
+# 5. Run database migrations
+echo "🗄️ Running database migrations..."
+docker compose exec -T app php artisan migrate --force || echo "⚠️  Migration failed (check manually)"
+
+# 6. Cache config, route, dan view
 echo "⚡ Caching configuration..."
 docker compose exec -T app php artisan config:cache || echo "⚠️  Config cache failed (non-critical)"
 docker compose exec -T app php artisan route:cache || echo "⚠️  Route cache failed (non-critical)"
