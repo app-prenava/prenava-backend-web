@@ -143,11 +143,13 @@ class StuntingPredictionController extends Controller
             $payload['iron_pills'] = (int) $payload['iron_pills'];
             $payload['pregnancy_sickness'] = (int) $payload['pregnancy_sickness'];
 
-            // MASKING: Isikan nilai default untuk data anak karena fokus pada ibu hamil
-            $payload['child_age_years'] = 0;
-            $payload['birth_weight'] = 3.0; // Normal birth weight
-            $payload['child_gender'] = 1; // Default
-            $payload['child_height'] = 50.0; // Normal birth height
+            // MASKING: Isikan nilai bayi yang 100% normal (ideal) 
+            // agar model HANYA bisa menganalisis berdasarkan kondisi Ibu Hamil.
+            $payload['child_age_years'] = 0;      // Bayi baru lahir
+            $payload['birth_weight'] = 3.2;       // Berat ideal 3.2 kg
+            $payload['child_height'] = 50.0;      // Panjang ideal 50 cm
+            $payload['child_gender'] = 1;         // Laki-laki default
+            $payload['birth_order'] = 1;          // Anak pertama
 
             $startTime = microtime(true);
             $response = Http::timeout(10)->post($this->mlApiUrl, $payload);
