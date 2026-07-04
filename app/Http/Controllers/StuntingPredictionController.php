@@ -207,7 +207,7 @@ class StuntingPredictionController extends Controller
             Log::error('Stunting Prediction Exception: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan internal server saat memproses prediksi.'
+                'message' => 'Terjadi kesalahan internal server saat memproses prediksi. Detail: ' . $e->getMessage()
             ], 500);
         }
     }
