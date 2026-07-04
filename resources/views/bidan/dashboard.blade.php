@@ -57,6 +57,18 @@
             </div>
         </div>
     </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="card bg-info text-white mb-4">
+            <div class="card-body">
+                <h4>{{ $riwayatAnemia->count() }}</h4>
+                Total Riwayat Anemia
+            </div>
+            <div class="card-footer d-flex align-items-center justify-content-between">
+                <a class="small text-white stretched-link" href="#">Lihat Detail</a>
+                <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+            </div>
+        </div>
+    </div>
 </div>
     <!-- Daftar Ibu Hamil -->
     <div class="card mb-4">
@@ -370,6 +382,62 @@
             @empty
                 <div class="col-12">
                     <div class="alert alert-info">Belum ada data prediksi persalinan.</div>
+                </div>
+            @endforelse
+        </div>
+    </div>
+</div>
+
+<!-- Riwayat Anemia -->
+<div class="card mb-4">
+    <div class="card-header bg-white text-dark fw-semibold">
+        <i class="fas fa-tint me-1 text-info"></i>
+        Riwayat Anemia Terbaru
+    </div>
+    <div class="card-body">
+        <div class="row">
+            @forelse($riwayatAnemia->take(6) as $anemia)
+                @php
+                    // Pastikan result sudah berupa array karena cast 'array' di model
+                    $isAnemia = isset($anemia->result['prediction']) && strtolower($anemia->result['prediction']) === 'anemia';
+                    $textClass = $isAnemia ? 'text-danger' : 'text-success';
+                    $borderClass = $isAnemia ? 'border-danger' : 'border-success';
+                @endphp
+
+                <div class="col-xl-4 col-md-6 mb-4">
+                    <div class="card h-100 border border-2 {{ $borderClass }}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="mb-0 fw-semibold">{{ $anemia->user->name ?? 'Tidak diketahui' }}</h5>
+                                <span class="fw-bold small {{ $textClass }}">
+                                    {{ isset($anemia->result['prediction']) ? ucfirst($anemia->result['prediction']) : 'Tidak Diketahui' }}
+                                </span>
+                            </div>
+
+                            <hr>
+                            
+                            <div class="mb-2 d-flex justify-content-between">
+                                <span><i class="fas fa-birthday-cake me-1 text-muted"></i> Usia Ibu</span>
+                                <span>{{ $anemia->user->usia ?? '-' }} tahun</span>
+                            </div>
+                            
+                            <div class="mb-2 d-flex justify-content-between">
+                                <span><i class="fas fa-clock me-1 text-muted"></i> Waktu Scan</span>
+                                <span>{{ $anemia->created_at->format('d M Y, H:i') }}</span>
+                            </div>
+
+                            @if(isset($anemia->result['confidence']))
+                            <div class="mb-2 d-flex justify-content-between">
+                                <span><i class="fas fa-percent me-1 text-muted"></i> Confidence</span>
+                                <span>{{ number_format((float) $anemia->result['confidence'], 2) }}%</span>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            @empty
+                <div class="col-12">
+                    <div class="alert alert-info">Belum ada data riwayat anemia.</div>
                 </div>
             @endforelse
         </div>

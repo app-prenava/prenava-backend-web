@@ -65,7 +65,7 @@ class StuntingPredictionController extends Controller
             [
                 'key' => 'iron_pills',
                 'label' => 'Konsumsi Pil Besi',
-                'type' => 'boolean',
+                'type' => 'select',
                 'options' => [
                     ['value' => '1', 'label' => 'Ya'],
                     ['value' => '0', 'label' => 'Tidak']
@@ -74,32 +74,11 @@ class StuntingPredictionController extends Controller
             [
                 'key' => 'pregnancy_sickness',
                 'label' => 'Sakit Selama Kehamilan',
-                'type' => 'boolean',
+                'type' => 'select',
                 'options' => [
                     ['value' => '1', 'label' => 'Ya'],
                     ['value' => '0', 'label' => 'Tidak']
                 ]
-            ],
-            [
-                'key' => 'birth_weight',
-                'label' => 'Berat Lahir Anak (kg)',
-                'type' => 'number',
-                'unit' => 'kg'
-            ],
-            [
-                'key' => 'child_gender',
-                'label' => 'Jenis Kelamin Anak',
-                'type' => 'select',
-                'options' => [
-                    ['value' => '1', 'label' => 'Laki-laki'],
-                    ['value' => '0', 'label' => 'Perempuan']
-                ]
-            ],
-            [
-                'key' => 'child_height',
-                'label' => 'Panjang/Tinggi Anak (cm)',
-                'type' => 'number',
-                'unit' => 'cm'
             ],
         ];
 
@@ -145,11 +124,8 @@ class StuntingPredictionController extends Controller
             'mother_age' => 'required|numeric|min:12|max:60',
             'mother_education' => 'required|numeric|min:0|max:25',
             'anc_visits_total' => 'required|numeric|min:0|max:20',
-            'iron_pills' => 'required|integer|in:0,1',
-            'pregnancy_sickness' => 'required|integer|in:0,1',
-            'birth_weight' => 'required|numeric|min:0.5|max:6.0',
-            'child_gender' => 'required|integer|in:0,1,3',
-            'child_height' => 'required|numeric|min:10|max:100',
+            'iron_pills' => 'required|numeric|in:0,1',
+            'pregnancy_sickness' => 'required|numeric|in:0,1',
         ]);
 
         if ($validator->fails()) {
@@ -162,7 +138,16 @@ class StuntingPredictionController extends Controller
 
         try {
             $payload = $validator->validated();
+            
+            // Konversi boolean/string dari form ke integer
+            $payload['iron_pills'] = (int) $payload['iron_pills'];
+            $payload['pregnancy_sickness'] = (int) $payload['pregnancy_sickness'];
+
+            // MASKING: Isikan nilai default untuk data anak karena fokus pada ibu hamil
             $payload['child_age_years'] = 0;
+            $payload['birth_weight'] = 3.0; // Normal birth weight
+            $payload['child_gender'] = 1; // Default
+            $payload['child_height'] = 50.0; // Normal birth height
 
             $startTime = microtime(true);
             $response = Http::timeout(10)->post($this->mlApiUrl, $payload);
