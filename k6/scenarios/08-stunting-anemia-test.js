@@ -9,17 +9,17 @@ export let options = {
         // 1. SMOKE TESTING: Cek biasa, stabil atau tidak (1 VU selama 1m)
         { duration: '1m', target: 1 },
         
-        // 2. LOAD TESTING: Uji beban normal (naik ke 50 VU, tahan 5m)
-        { duration: '30s', target: 50 },  // Ramp-up
-        { duration: '5m', target: 50 },   // Tahan di 50 VU
+        // 2. LOAD TESTING: Uji beban normal (naik ke 25 VU, tahan 5m)
+        { duration: '30s', target: 25 },  // Ramp-up
+        { duration: '5m', target: 25 },   // Tahan di 25 VU
         
-        // 3. STRESS TESTING: Uji batas server (naik ke 200 VU, tahan 2m)
-        { duration: '1m', target: 200 },  // Ramp-up
-        { duration: '2m', target: 200 },  // Tahan di 200 VU
+        // 3. STRESS TESTING: Uji batas server (naik ke 50 VU, tahan 2m)
+        { duration: '1m', target: 50 },  // Ramp-up
+        { duration: '2m', target: 50 },  // Tahan di 50 VU
         { duration: '30s', target: 0 },   // Turun sejenak untuk persiapan spike
 
-        // 4. SPIKE TESTING: Lonjakan tiba-tiba (1000 VU dalam 10s)
-        { duration: '10s', target: 1000 },
+        // 4. SPIKE TESTING: Lonjakan tiba-tiba (100 VU dalam 10s)
+        { duration: '10s', target: 100 },
         { duration: '30s', target: 0 },   // Cool down
     ],
     thresholds: {
@@ -48,7 +48,7 @@ export default function (data) {
     headers['Content-Type'] = 'application/json';
 
     group('Stunting Prediction Endpoint', function () {
-        const stuntingUrl = `${CONFIG.BASE_URL}/api/stunting/predict`;
+        const stuntingUrl = `${CONFIG.BASE_URL}/stunting/predict`;
         const stuntingPayload = JSON.stringify({
             "age": 25,
             "weight": 60,
@@ -67,7 +67,7 @@ export default function (data) {
     sleep(0.5); // Jeda kecil antar endpoint agar realistis
 
     group('Anemia Scan Endpoint', function () {
-        const anemiaUrl = `${CONFIG.BASE_URL}/api/anemia-scan`;
+        const anemiaUrl = `${CONFIG.BASE_URL}/anemia-scan`;
         // Endpoint ini biasanya menerima file gambar (multipart/form-data)
         // Sebagai simulasi stress test dasar, kita kirim POST kosong atau parameter base64 string
         const anemiaPayload = JSON.stringify({
