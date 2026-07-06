@@ -59,9 +59,10 @@ Berikut adalah profil kesehatan, kondisi, dan preferensi dari seorang ibu hamil:
 {$profileJson}
 
 Tugasmu:
-1. Hitung perkiraan kebutuhan nutrisi harian ibu ini berdasarkan kondisinya (BMI, Trimester, Berat, Tinggi, dsb).
-2. Analisis nutrisi apa saja yang kemungkinan besar Kurang berdasarkan profilnya (misal: jika Hb rendah berarti butuh Zat Besi).
-3. Buatkan rekomendasi menu harian (Sarapan, Makan Siang, Makan Malam) yang terjangkau, menggunakan bahan lokal Indonesia, dan sesuai dengan budget serta pantangannya.
+1. JANGAN menebak angka kalori/protein! Gunakan angka PASTI dari 'kebutuhan_kalori_harian_tepat' dan 'kebutuhan_protein_harian_tepat' yang ada di profil untuk mengisi field "kebutuhan" di analisis gizi.
+2. Analisis nutrisi apa saja yang kemungkinan besar Kurang (misal: jika Hb rendah berarti butuh Zat Besi).
+3. Buatkan rekomendasi menu harian (Sarapan, Makan Siang, Makan Malam) yang sehat untuk ibu hamil, menggunakan bahan lokal Indonesia.
+   - PENTING: JANGAN rekomendasikan makanan yang terlalu manis/tinggi gula atau kurang bergizi seperti Gudeg, kecuali user yang memintanya! Pilih makanan padat gizi (ikan, ayam bakar, telur, sayur bening).
 4. Berikan saran personal yang suportif.
 
 Berikan respons HANYA dalam format JSON dengan struktur persis seperti ini:

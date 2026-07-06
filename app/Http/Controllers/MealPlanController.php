@@ -32,6 +32,32 @@ class MealPlanController extends Controller
             'alergi' => 'nullable|string',
         ]);
 
+        // Calculate accurate nutritional needs
+        $bb = $validated['berat_badan'] ?? 60;
+        $tb = $validated['tinggi_badan'] ?? 155;
+        $trimester = $validated['trimester'] ?? 1;
+        $usia = 25; // Default age
+
+        // Mifflin-St Jeor Equation for women
+        $bmr = (10 * $bb) + (6.25 * $tb) - (5 * $usia) - 161;
+        $tee = $bmr * 1.2; // Sedentary
+
+        // Additional calories based on trimester
+        if ($trimester == 2) {
+            $tee += 300;
+        } elseif ($trimester == 3) {
+            $tee += 450;
+        }
+
+        // Protein calculation (1.1g per kg + extra for pregnancy)
+        $protein = $bb * 1.1;
+        if ($trimester >= 2) {
+            $protein += 15;
+        }
+
+        $validated['kebutuhan_kalori_harian_tepat'] = round($tee) . " kcal";
+        $validated['kebutuhan_protein_harian_tepat'] = round($protein) . " gram";
+
         try {
             $evaluation = $this->groqService->generateDynamicMealPlan($validated);
 
