@@ -50,13 +50,15 @@ export default function (data) {
     group('Stunting Prediction Endpoint', function () {
         const stuntingUrl = `${CONFIG.BASE_URL}/stunting/predict`;
         const stuntingPayload = JSON.stringify({
-            "age": 25,
-            "weight": 60,
-            "height": 155,
-            "maternal_hemoglobin": 11,
-            "baby_weight_kg": 2.5,
-            "history_of_stunting": "No"
-        }); // Contoh payload prediksi stunting
+            "mother_height": 155,
+            "mother_weight": 60,
+            "maternal_hemoglobin": 11.5,
+            "mother_age": 25,
+            "mother_education": 12,
+            "anc_visits_total": 5,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }); // Payload sesuai validasi backend
 
         const resStunting = http.post(stuntingUrl, stuntingPayload, { headers: headers });
         check(resStunting, {
