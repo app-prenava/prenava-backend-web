@@ -30,6 +30,7 @@ class MealPlanController extends Controller
             'pantangan' => 'nullable|string',
             'alergi' => 'nullable|string',
             'durasi' => 'nullable|in:sehari,seminggu',
+            'prediction_id' => 'nullable|integer|exists:stunting_predictions,id',
         ]);
 
         // Calculate accurate nutritional needs
@@ -66,6 +67,14 @@ class MealPlanController extends Controller
                     'success' => false,
                     'message' => 'Gagal mendapatkan evaluasi gizi dari AI.'
                 ], 500);
+            }
+
+            if (!empty($validated['prediction_id'])) {
+                $prediction = \App\Models\StuntingPrediction::find($validated['prediction_id']);
+                if ($prediction) {
+                    $prediction->ai_meal_plan = $evaluation;
+                    $prediction->save();
+                }
             }
 
             return response()->json([

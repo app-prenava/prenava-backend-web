@@ -298,6 +298,8 @@ class StuntingPredictionController extends Controller
             'riskLabel' => $prediction->risk_label,
             'recommendation' => $recommendationText,
             'predictionId' => $prediction->id,
+            'inputData' => $prediction->input_data,
+            'aiMealPlan' => $prediction->ai_meal_plan,
         ];
         
         // Tambahkan info user jika bidan mengakses
