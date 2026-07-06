@@ -50,36 +50,59 @@ PROMPT;
     }
 
     /**
-     * Generate meal plan based on risk level and SHAP factors.
+     * Generate dynamic and personalized meal plan based on user health profile.
      *
-     * @param string $riskLabel 'high_risk' or 'low_risk'
-     * @param array $factorLabels Human-readable factor labels
-     * @param array $foodNames Available food names
+     * @param array $userProfile Detailed user health profile (BMI, Trimester, etc.)
      * @return array|null
      */
-    public function getMealPlan(string $riskLabel, array $factorLabels, array $foodNames): ?array
+    public function generateDynamicMealPlan(array $userProfile): ?array
     {
-        $riskText = $riskLabel === 'high_risk' ? 'TINGGI' : 'RENDAH';
-        $factors  = implode(', ', $factorLabels);
-        $foods    = implode(', ', $foodNames);
+        $profileJson = json_encode($userProfile, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
         $prompt = <<<PROMPT
-Kamu adalah ahli gizi prenatal. Buatkan rencana makan harian untuk ibu hamil dengan:
+Kamu adalah ahli gizi prenatal (kehamilan) tingkat lanjut.
+Berikut adalah profil kesehatan, kondisi, dan preferensi dari seorang ibu hamil:
+{$profileJson}
 
-Tingkat Risiko Stunting: {$riskText}
-Faktor risiko: {$factors}
-Bahan tersedia: {$foods}
+Tugasmu:
+1. Hitung perkiraan kebutuhan nutrisi harian ibu ini berdasarkan kondisinya (BMI, Trimester, Berat, Tinggi, dsb).
+2. Analisis nutrisi apa saja yang kemungkinan besar Kesihatan/Kurang berdasarkan profilnya (misal: jika Hb rendah berarti butuh Zat Besi).
+3. Buatkan rekomendasi menu harian (Sarapan, Makan Siang, Makan Malam) yang terjangkau, menggunakan bahan lokal Indonesia, dan sesuai dengan budget serta pantangannya.
+4. Berikan saran personal yang suportif.
 
-Berikan respons dalam format JSON berikut (tanpa markdown, hanya JSON murni):
+Berikan respons HANYA dalam format JSON murni (tanpa markdown, tanpa awalan/akhiran apapun) dengan struktur persis seperti ini:
 {
-  "cooking_guide": "Panduan memasak sehat untuk ibu hamil...",
-  "nutrition_tips": "Tips nutrisi berdasarkan faktor risiko...",
-  "meal_plan": "Rencana makan: Sarapan... Makan Siang... Makan Malam... Camilan..."
+  "analisis_gizi": [
+    {
+      "nutrisi": "Kalori",
+      "status": "Terpenuhi / Kurang / Berlebih",
+      "kebutuhan": "...",
+      "asupan": "...",
+      "catatan": "..."
+    }
+  ],
+  "rekomendasi_menu": {
+    "sarapan": {
+      "menu": ["...", "..."],
+      "alasan": "..."
+    },
+    "makan_siang": {
+      "menu": ["...", "..."],
+      "alasan": "..."
+    },
+    "makan_malam": {
+      "menu": ["...", "..."],
+      "alasan": "..."
+    }
+  },
+  "saran_ai": [
+    "...",
+    "..."
+  ],
+  "catatan": "Rekomendasi ini disusun berdasarkan hasil analisis kondisi ibu dan kebutuhan nutrisi saat ini..."
 }
 
-Gunakan bahasa Indonesia sederhana.
-Fokus pada nutrisi yang membantu mencegah stunting.
-Berikan saran yang realistis dan terjangkau.
+Pastikan format JSON valid agar bisa di-parsing oleh sistem. Gunakan bahasa Indonesia yang ramah layaknya dokter ke pasien.
 PROMPT;
 
         return $this->callGemini($prompt);

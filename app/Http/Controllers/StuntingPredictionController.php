@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Models\StuntingPrediction;
-use App\Models\Food;
+
 
 class StuntingPredictionController extends Controller
 {
@@ -88,28 +88,7 @@ class StuntingPredictionController extends Controller
         ]);
     }
 
-    /**
-     * Endpoint untuk daftar rekomendasi makanan dari DB Food (scraped)
-     * GET /api/stunting/foods
-     */
-    public function getFoods(Request $request)
-    {
-        $limit = $request->query('per_page', 200); // limit to 200 for payload size
-        $foods = Food::limit($limit)->get()->map(function ($food) {
-            return [
-                'id' => (string) $food->id,
-                'name' => $food->name,
-                'calories' => (float) $food->calories,
-                'protein' => (float) $food->protein,
-                'imageUrl' => $food->image_url,
-            ];
-        });
 
-        return response()->json([
-            'success' => true,
-            'data' => $foods
-        ]);
-    }
 
     /**
      * Endpoint API ML Stunting

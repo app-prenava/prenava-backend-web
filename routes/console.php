@@ -37,7 +37,4 @@ Schedule::command('wallets:sync-views')
     ->withoutOverlapping()
     ->runInBackground();
 
-Schedule::command('crawl:foods')
-    ->twiceMonthly(1, 16, '00:00')
-    ->withoutOverlapping()
-    ->runInBackground();
+

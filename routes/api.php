@@ -38,9 +38,7 @@ use App\Http\Controllers\CatatanIbuController;
 use App\Http\Controllers\HistoryLogController;
 use App\Http\Controllers\DailyFeatureController;
 use App\Http\Controllers\LocalWisdomController;
-use App\Http\Controllers\FoodRecommendationController;
 use App\Http\Controllers\MealPlanController;
-use App\Http\Controllers\UserFoodPreferenceController;
 use App\Http\Controllers\StuntingPredictionController;
 // Bidan Subscription Controllers
 use App\Http\Controllers\SubscriptionController;
@@ -302,7 +300,6 @@ Route::group(['middleware' => 'auth:api'], function () {
     // Stunting Prediction & Foods
     Route::get('/stunting/questions', [StuntingPredictionController::class, 'getQuestions']);
     Route::post('/stunting/predict', [StuntingPredictionController::class, 'predict']);
-    Route::get('/stunting/foods', [StuntingPredictionController::class, 'getFoods']);
     Route::get('/stunting/history', [StuntingPredictionController::class, 'history']);
     Route::get('/stunting/history/{id}', [StuntingPredictionController::class, 'historyDetail']);
 });
@@ -413,15 +410,6 @@ Route::prefix('user')->middleware(['auth:api'])->group(function () {
     Route::post('/local-wisdom/toggle', [LocalWisdomController::class, 'toggle']);
     Route::get('/local-wisdom/analytics', [LocalWisdomController::class, 'analytics']);
 
-    // Food Preferences
-    Route::get('/food-preferences', [UserFoodPreferenceController::class, 'getPreference']);
-    Route::post('/food-preferences', [UserFoodPreferenceController::class, 'savePreference']);
-
-    // Food Recommendations
-    Route::get('/food-recommendations', [FoodRecommendationController::class, 'getRecommendations']);
-
-    // Meal Plan
-    Route::get('/meal-plan/active', [MealPlanController::class, 'getActiveMealPlan']);
+    // Meal Plan (AI Generated)
     Route::post('/meal-plan/generate', [MealPlanController::class, 'generateMealPlan']);
-    Route::post('/meal-plan/{id}/items', [MealPlanController::class, 'saveMealPlanItems']);
 });
