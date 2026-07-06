@@ -3,16 +3,16 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Services\GeminiService;
+use App\Services\GroqService;
 use Illuminate\Support\Facades\Log;
 
 class MealPlanController extends Controller
 {
-    protected GeminiService $geminiService;
+    protected GroqService $groqService;
 
-    public function __construct(GeminiService $geminiService)
+    public function __construct(GroqService $groqService)
     {
-        $this->geminiService = $geminiService;
+        $this->groqService = $groqService;
     }
 
     /**
@@ -33,7 +33,7 @@ class MealPlanController extends Controller
         ]);
 
         try {
-            $evaluation = $this->geminiService->generateDynamicMealPlan($validated);
+            $evaluation = $this->groqService->generateDynamicMealPlan($validated);
 
             if (!$evaluation) {
                 return response()->json([
