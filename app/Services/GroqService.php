@@ -98,11 +98,11 @@ Berikut adalah profil kesehatan, kondisi, dan preferensi dari seorang ibu hamil:
 {$profileJson}
 
 Tugasmu:
-1. JANGAN menebak angka kalori/protein! Gunakan angka PASTI dari 'kebutuhan_kalori_harian_tepat' dan 'kebutuhan_protein_harian_tepat' yang ada di profil untuk mengisi field "kebutuhan" di analisis gizi.
-2. Analisis nutrisi apa saja yang kemungkinan besar Kurang (misal: jika Hb rendah berarti butuh Zat Besi).
-3. Buatkan rekomendasi menu {$durasi} yang sehat untuk ibu hamil, menggunakan bahan lokal Indonesia sesuai pedoman gizi Kemenkes RI, dan sesuai pantangannya.
-   - PENTING: JANGAN rekomendasikan makanan yang terlalu manis/tinggi gula atau kurang bergizi seperti Gudeg, kecuali user yang memintanya! Pilih makanan padat gizi (ikan, ayam, telur, sayur bening).
-4. Berikan saran personal yang suportif.
+1. JANGAN menebak angka kalori/protein! Gunakan angka PASTI dari 'kebutuhan_kalori_harian_tepat' dan 'kebutuhan_protein_harian_tepat' yang ada di profil.
+2. Personalisasi menu SANGAT SPESIFIK untuk profil ibu ini! Jika Hb rendah, perbanyak sumber zat besi. Jika BMI rendah/kurang energi kronis, tingkatkan porsi padat kalori bergizi. Jika BMI berlebih, fokus pada makanan tinggi serat rendah lemak.
+3. Buatkan rekomendasi menu {$durasi} yang sehat untuk ibu hamil, menggunakan bahan lokal Indonesia sesuai pedoman gizi Kemenkes RI, dan WAJIB mematuhi pantangannya.
+   - PENTING: Menu harus bervariasi setiap harinya (jika seminggu). Pilih makanan padat gizi (ikan, ayam, telur, daging sapi, sayur hijau segar). Hindari santan kental, makanan kaleng, dan makanan terlalu manis.
+4. Berikan saran personal yang suportif dan spesifik berdasarkan kondisi kehamilannya (skor stunting, berat badan, atau Hb).
 
 Berikan respons HANYA dalam format JSON dengan struktur persis seperti ini:
 {
