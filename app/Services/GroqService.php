@@ -52,30 +52,28 @@ PROMPT;
     public function generateDynamicMealPlan(array $userProfile): ?array
     {
         $profileJson = json_encode($userProfile, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        
+        $durasi = $userProfile['durasi'] ?? 'sehari';
 
-        $prompt = <<<PROMPT
-Kamu adalah ahli gizi prenatal (kehamilan) tingkat lanjut.
-Berikut adalah profil kesehatan, kondisi, dan preferensi dari seorang ibu hamil:
-{$profileJson}
-
-Tugasmu:
-1. JANGAN menebak angka kalori/protein! Gunakan angka PASTI dari 'kebutuhan_kalori_harian_tepat' dan 'kebutuhan_protein_harian_tepat' yang ada di profil untuk mengisi field "kebutuhan" di analisis gizi.
-2. Analisis nutrisi apa saja yang kemungkinan besar Kurang (misal: jika Hb rendah berarti butuh Zat Besi).
-3. Buatkan rekomendasi menu harian (Sarapan, Makan Siang, Makan Malam) yang sehat untuk ibu hamil, menggunakan bahan lokal Indonesia.
-   - PENTING: JANGAN rekomendasikan makanan yang terlalu manis/tinggi gula atau kurang bergizi seperti Gudeg, kecuali user yang memintanya! Pilih makanan padat gizi (ikan, ayam bakar, telur, sayur bening).
-4. Berikan saran personal yang suportif.
-
-Berikan respons HANYA dalam format JSON dengan struktur persis seperti ini:
-{
-  "analisis_gizi": [
-    {
-      "nutrisi": "Kalori",
-      "status": "Terpenuhi / Kurang / Berlebih",
-      "kebutuhan": "...",
-      "asupan": "...",
-      "catatan": "..."
-    }
-  ],
+        $formatRekomendasi = "";
+        if ($durasi === 'seminggu') {
+            $formatRekomendasi = <<<FORMAT
+  "rekomendasi_menu": {
+    "senin": {
+      "sarapan": { "menu": ["...", "..."], "alasan": "..." },
+      "makan_siang": { "menu": ["...", "..."], "alasan": "..." },
+      "makan_malam": { "menu": ["...", "..."], "alasan": "..." }
+    },
+    "selasa": { "sarapan": {...}, "makan_siang": {...}, "makan_malam": {...} },
+    "rabu": { "sarapan": {...}, "makan_siang": {...}, "makan_malam": {...} },
+    "kamis": { "sarapan": {...}, "makan_siang": {...}, "makan_malam": {...} },
+    "jumat": { "sarapan": {...}, "makan_siang": {...}, "makan_malam": {...} },
+    "sabtu": { "sarapan": {...}, "makan_siang": {...}, "makan_malam": {...} },
+    "minggu": { "sarapan": {...}, "makan_siang": {...}, "makan_malam": {...} }
+  }
+FORMAT;
+        } else {
+            $formatRekomendasi = <<<FORMAT
   "rekomendasi_menu": {
     "sarapan": {
       "menu": ["...", "..."],
@@ -89,12 +87,40 @@ Berikan respons HANYA dalam format JSON dengan struktur persis seperti ini:
       "menu": ["...", "..."],
       "alasan": "..."
     }
-  },
+  }
+FORMAT;
+        }
+
+        $prompt = <<<PROMPT
+Kamu adalah ahli gizi prenatal (kehamilan) tingkat lanjut.
+Patuhi standar "Pedoman Gizi Seimbang Ibu Hamil" dari Kementerian Kesehatan RI (Isi Piringku untuk Ibu Hamil).
+Berikut adalah profil kesehatan, kondisi, dan preferensi dari seorang ibu hamil:
+{$profileJson}
+
+Tugasmu:
+1. JANGAN menebak angka kalori/protein! Gunakan angka PASTI dari 'kebutuhan_kalori_harian_tepat' dan 'kebutuhan_protein_harian_tepat' yang ada di profil untuk mengisi field "kebutuhan" di analisis gizi.
+2. Analisis nutrisi apa saja yang kemungkinan besar Kurang (misal: jika Hb rendah berarti butuh Zat Besi).
+3. Buatkan rekomendasi menu {$durasi} yang sehat untuk ibu hamil, menggunakan bahan lokal Indonesia sesuai pedoman gizi Kemenkes RI, dan sesuai pantangannya.
+   - PENTING: JANGAN rekomendasikan makanan yang terlalu manis/tinggi gula atau kurang bergizi seperti Gudeg, kecuali user yang memintanya! Pilih makanan padat gizi (ikan, ayam, telur, sayur bening).
+4. Berikan saran personal yang suportif.
+
+Berikan respons HANYA dalam format JSON dengan struktur persis seperti ini:
+{
+  "analisis_gizi": [
+    {
+      "nutrisi": "Kalori",
+      "status": "Terpenuhi / Kurang / Berlebih",
+      "kebutuhan": "...",
+      "asupan": "...",
+      "catatan": "..."
+    }
+  ],
+{$formatRekomendasi},
   "saran_ai": [
     "...",
     "..."
   ],
-  "catatan": "Rekomendasi ini disusun berdasarkan hasil analisis kondisi ibu dan kebutuhan nutrisi saat ini..."
+  "catatan": "Rekomendasi ini disusun berdasarkan Pedoman Gizi Ibu Hamil Kemenkes RI dan profil kesehatan ibu..."
 }
 
 Pastikan format JSON valid agar bisa di-parsing oleh sistem.

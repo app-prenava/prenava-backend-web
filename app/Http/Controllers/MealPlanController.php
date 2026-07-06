@@ -27,9 +27,9 @@ class MealPlanController extends Controller
             'berat_badan' => 'nullable|numeric',
             'tinggi_badan' => 'nullable|numeric',
             'hb' => 'nullable|numeric',
-            'budget' => 'nullable|string',
             'pantangan' => 'nullable|string',
             'alergi' => 'nullable|string',
+            'durasi' => 'nullable|in:sehari,seminggu',
         ]);
 
         // Calculate accurate nutritional needs
