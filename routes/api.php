@@ -42,6 +42,8 @@ use App\Http\Controllers\LocalWisdomController;
 use App\Http\Controllers\StuntingPredictionController;
 use App\Http\Controllers\FoodRecommendationController;
 use App\Http\Controllers\UserFoodPreferenceController;
+use App\Http\Controllers\ShowDataUserDashboard;
+
 
 // Bidan Subscription Controllers
 use App\Http\Controllers\SubscriptionController;
@@ -54,6 +56,8 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/recomendation/sport-sync', [RecomendationSportController::class, 'syncMlRules']);
 Route::get('/ml-service/sport-rules', [RecomendationSportController::class, 'getSportRulesForSync']);
+Route::get('/show-data-age-lmp', [ShowDataUserDashboard::class, 'showDataAgeLmp']);
+
 
 Route::get('/debug/redis-likes', [RedisDebugController::class, 'likes']);
 Route::prefix('parameterized')->group(function () {
