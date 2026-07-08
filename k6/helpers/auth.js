@@ -2,7 +2,7 @@
 // Handles JWT token generation and management
 
 import { check } from 'k6';
-import { http } from 'k6/execution';
+import http from 'k6/http';
 import { CONFIG } from '../config.js';
 
 // Token storage (shared across VUs using shared-objects module if needed)
@@ -37,12 +37,18 @@ export function login(email, password) {
 
   const success = check(loginRes, {
     'login successful': (r) => r.status === 200,
-    'received token': (r) => r.json('access_token') !== undefined,
-    'received refresh token': (r) => r.json('refresh_token') !== undefined,
+    'received token': (r) => {
+        try {
+            return r.json('authorization.token') !== undefined;
+        } catch(e) {
+            return r.json('access_token') !== undefined;
+        }
+    }
   });
 
   if (success) {
-    const token = loginRes.json('access_token');
+    // Coba ambil dari authorization.token, kalau tidak ada coba dari access_token (legacy)
+    const token = loginRes.json('authorization.token') || loginRes.json('access_token');
     authToken = token;
     return token;
   }

@@ -36,3 +36,5 @@ Schedule::command('wallets:sync-views')
     ->dailyAt(sprintf('%02d:%02d', $hour, $minute))
     ->withoutOverlapping()
     ->runInBackground();
+
+

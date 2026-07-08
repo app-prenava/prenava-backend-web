@@ -14,9 +14,18 @@ class HealthHistoryController extends Controller
     {
         try {
             $user = $request->user();
-            $history = HealthScanHistory::where('user_id', $user->user_id ?? $user->id)
-                ->orderBy('created_at', 'desc')
-                ->get();
+            
+            // OPSI 1: Bidan bisa lihat SEMUA data
+            // User lain hanya lihat data sendiri
+            if ($user->role === 'bidan') {
+                $history = HealthScanHistory::with('user:user_id,name,email')
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+            } else {
+                $history = HealthScanHistory::where('user_id', $user->user_id ?? $user->id)
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+            }
 
             return response()->json([
                 'status' => 'success',

@@ -1,0 +1,702 @@
+[
+    {
+        "scenario_id": "rendah_1",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 159.1,
+            "mother_weight": 74.3,
+            "maternal_hemoglobin": 11.5,
+            "mother_age": 26,
+            "mother_education": 12,
+            "anc_visits_total": 7,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_2",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 169.9,
+            "mother_weight": 63.0,
+            "maternal_hemoglobin": 12.8,
+            "mother_age": 30,
+            "mother_education": 16,
+            "anc_visits_total": 8,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_3",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 160.8,
+            "mother_weight": 58.2,
+            "maternal_hemoglobin": 12.4,
+            "mother_age": 23,
+            "mother_education": 12,
+            "anc_visits_total": 5,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_4",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 159.6,
+            "mother_weight": 61.8,
+            "maternal_hemoglobin": 13.5,
+            "mother_age": 25,
+            "mother_education": 16,
+            "anc_visits_total": 7,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_5",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 174.9,
+            "mother_weight": 63.2,
+            "maternal_hemoglobin": 11.8,
+            "mother_age": 34,
+            "mother_education": 16,
+            "anc_visits_total": 5,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_6",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 156.6,
+            "mother_weight": 57.5,
+            "maternal_hemoglobin": 11.9,
+            "mother_age": 25,
+            "mother_education": 12,
+            "anc_visits_total": 5,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_7",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 167.7,
+            "mother_weight": 67.6,
+            "maternal_hemoglobin": 12.6,
+            "mother_age": 26,
+            "mother_education": 16,
+            "anc_visits_total": 5,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_8",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 164.3,
+            "mother_weight": 74.3,
+            "maternal_hemoglobin": 13.0,
+            "mother_age": 25,
+            "mother_education": 12,
+            "anc_visits_total": 8,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_9",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 160.2,
+            "mother_weight": 58.0,
+            "maternal_hemoglobin": 12.4,
+            "mother_age": 32,
+            "mother_education": 16,
+            "anc_visits_total": 9,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_10",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 161.5,
+            "mother_weight": 62.1,
+            "maternal_hemoglobin": 11.8,
+            "mother_age": 24,
+            "mother_education": 12,
+            "anc_visits_total": 10,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_11",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 172.0,
+            "mother_weight": 69.4,
+            "maternal_hemoglobin": 12.2,
+            "mother_age": 27,
+            "mother_education": 12,
+            "anc_visits_total": 9,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_12",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 156.8,
+            "mother_weight": 58.6,
+            "maternal_hemoglobin": 12.5,
+            "mother_age": 33,
+            "mother_education": 16,
+            "anc_visits_total": 6,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_13",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 173.0,
+            "mother_weight": 56.3,
+            "maternal_hemoglobin": 13.5,
+            "mother_age": 32,
+            "mother_education": 16,
+            "anc_visits_total": 9,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_14",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 169.6,
+            "mother_weight": 58.8,
+            "maternal_hemoglobin": 12.7,
+            "mother_age": 26,
+            "mother_education": 12,
+            "anc_visits_total": 5,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_15",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 171.5,
+            "mother_weight": 66.1,
+            "maternal_hemoglobin": 12.0,
+            "mother_age": 26,
+            "mother_education": 12,
+            "anc_visits_total": 8,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_16",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 162.7,
+            "mother_weight": 63.0,
+            "maternal_hemoglobin": 13.0,
+            "mother_age": 34,
+            "mother_education": 16,
+            "anc_visits_total": 10,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "rendah_17",
+        "expected_result": "Rendah",
+        "data": {
+            "mother_height": 155.3,
+            "mother_weight": 71.7,
+            "maternal_hemoglobin": 13.7,
+            "mother_age": 34,
+            "mother_education": 16,
+            "anc_visits_total": 9,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "sedang_1",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 148.6,
+            "mother_weight": 51.1,
+            "maternal_hemoglobin": 11.2,
+            "mother_age": 24,
+            "mother_education": 12,
+            "anc_visits_total": 5,
+            "iron_pills": 1,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "sedang_2",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 148.1,
+            "mother_weight": 52.1,
+            "maternal_hemoglobin": 10.7,
+            "mother_age": 21,
+            "mother_education": 12,
+            "anc_visits_total": 4,
+            "iron_pills": 0,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "sedang_3",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 150.2,
+            "mother_weight": 50.1,
+            "maternal_hemoglobin": 10.8,
+            "mother_age": 24,
+            "mother_education": 9,
+            "anc_visits_total": 4,
+            "iron_pills": 1,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "sedang_4",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 151.8,
+            "mother_weight": 51.3,
+            "maternal_hemoglobin": 10.5,
+            "mother_age": 24,
+            "mother_education": 12,
+            "anc_visits_total": 3,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "sedang_5",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 150.6,
+            "mother_weight": 53.6,
+            "maternal_hemoglobin": 11.3,
+            "mother_age": 23,
+            "mother_education": 12,
+            "anc_visits_total": 5,
+            "iron_pills": 0,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "sedang_6",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 152.8,
+            "mother_weight": 52.7,
+            "maternal_hemoglobin": 10.7,
+            "mother_age": 22,
+            "mother_education": 9,
+            "anc_visits_total": 4,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "sedang_7",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 148.1,
+            "mother_weight": 51.2,
+            "maternal_hemoglobin": 11.1,
+            "mother_age": 19,
+            "mother_education": 12,
+            "anc_visits_total": 4,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "sedang_8",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 149.7,
+            "mother_weight": 52.3,
+            "maternal_hemoglobin": 10.8,
+            "mother_age": 24,
+            "mother_education": 9,
+            "anc_visits_total": 4,
+            "iron_pills": 0,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "sedang_9",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 150.0,
+            "mother_weight": 53.9,
+            "maternal_hemoglobin": 10.7,
+            "mother_age": 25,
+            "mother_education": 12,
+            "anc_visits_total": 5,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "sedang_10",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 151.7,
+            "mother_weight": 51.5,
+            "maternal_hemoglobin": 10.8,
+            "mother_age": 20,
+            "mother_education": 9,
+            "anc_visits_total": 3,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "sedang_11",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 151.4,
+            "mother_weight": 51.2,
+            "maternal_hemoglobin": 10.9,
+            "mother_age": 23,
+            "mother_education": 9,
+            "anc_visits_total": 3,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "sedang_12",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 152.1,
+            "mother_weight": 51.6,
+            "maternal_hemoglobin": 11.2,
+            "mother_age": 22,
+            "mother_education": 9,
+            "anc_visits_total": 5,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "sedang_13",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 151.1,
+            "mother_weight": 50.9,
+            "maternal_hemoglobin": 10.5,
+            "mother_age": 25,
+            "mother_education": 9,
+            "anc_visits_total": 5,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "sedang_14",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 152.5,
+            "mother_weight": 52.7,
+            "maternal_hemoglobin": 10.8,
+            "mother_age": 20,
+            "mother_education": 12,
+            "anc_visits_total": 4,
+            "iron_pills": 0,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "sedang_15",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 150.7,
+            "mother_weight": 52.4,
+            "maternal_hemoglobin": 11.2,
+            "mother_age": 25,
+            "mother_education": 12,
+            "anc_visits_total": 5,
+            "iron_pills": 1,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "sedang_16",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 150.2,
+            "mother_weight": 52.2,
+            "maternal_hemoglobin": 11.4,
+            "mother_age": 20,
+            "mother_education": 9,
+            "anc_visits_total": 4,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "sedang_17",
+        "expected_result": "Sedang",
+        "data": {
+            "mother_height": 151.9,
+            "mother_weight": 52.8,
+            "maternal_hemoglobin": 11.0,
+            "mother_age": 24,
+            "mother_education": 12,
+            "anc_visits_total": 5,
+            "iron_pills": 1,
+            "pregnancy_sickness": 0
+        }
+    },
+    {
+        "scenario_id": "tinggi_1",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 140.0,
+            "mother_weight": 42.8,
+            "maternal_hemoglobin": 8.1,
+            "mother_age": 15,
+            "mother_education": 6,
+            "anc_visits_total": 1,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_2",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 142.2,
+            "mother_weight": 41.0,
+            "maternal_hemoglobin": 8.6,
+            "mother_age": 15,
+            "mother_education": 9,
+            "anc_visits_total": 0,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_3",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 143.9,
+            "mother_weight": 46.0,
+            "maternal_hemoglobin": 8.2,
+            "mother_age": 16,
+            "mother_education": 9,
+            "anc_visits_total": 0,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_4",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 144.8,
+            "mother_weight": 44.3,
+            "maternal_hemoglobin": 7.4,
+            "mother_age": 18,
+            "mother_education": 9,
+            "anc_visits_total": 0,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_5",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 145.0,
+            "mother_weight": 46.6,
+            "maternal_hemoglobin": 8.7,
+            "mother_age": 19,
+            "mother_education": 0,
+            "anc_visits_total": 1,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_6",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 144.3,
+            "mother_weight": 45.5,
+            "maternal_hemoglobin": 9.1,
+            "mother_age": 17,
+            "mother_education": 6,
+            "anc_visits_total": 2,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_7",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 146.4,
+            "mother_weight": 42.5,
+            "maternal_hemoglobin": 9.6,
+            "mother_age": 18,
+            "mother_education": 9,
+            "anc_visits_total": 0,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_8",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 142.5,
+            "mother_weight": 46.2,
+            "maternal_hemoglobin": 9.3,
+            "mother_age": 18,
+            "mother_education": 6,
+            "anc_visits_total": 0,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_9",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 146.4,
+            "mother_weight": 46.3,
+            "maternal_hemoglobin": 9.8,
+            "mother_age": 19,
+            "mother_education": 9,
+            "anc_visits_total": 2,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_10",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 142.2,
+            "mother_weight": 41.0,
+            "maternal_hemoglobin": 7.1,
+            "mother_age": 17,
+            "mother_education": 0,
+            "anc_visits_total": 1,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_11",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 146.8,
+            "mother_weight": 41.3,
+            "maternal_hemoglobin": 7.7,
+            "mother_age": 17,
+            "mother_education": 6,
+            "anc_visits_total": 0,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_12",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 141.2,
+            "mother_weight": 43.3,
+            "maternal_hemoglobin": 8.6,
+            "mother_age": 20,
+            "mother_education": 9,
+            "anc_visits_total": 0,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_13",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 140.4,
+            "mother_weight": 43.2,
+            "maternal_hemoglobin": 9.6,
+            "mother_age": 17,
+            "mother_education": 0,
+            "anc_visits_total": 1,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_14",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 144.3,
+            "mother_weight": 44.8,
+            "maternal_hemoglobin": 7.1,
+            "mother_age": 18,
+            "mother_education": 9,
+            "anc_visits_total": 1,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_15",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 144.2,
+            "mother_weight": 42.9,
+            "maternal_hemoglobin": 8.3,
+            "mother_age": 20,
+            "mother_education": 6,
+            "anc_visits_total": 1,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    },
+    {
+        "scenario_id": "tinggi_16",
+        "expected_result": "Tinggi",
+        "data": {
+            "mother_height": 145.2,
+            "mother_weight": 44.1,
+            "maternal_hemoglobin": 8.8,
+            "mother_age": 18,
+            "mother_education": 0,
+            "anc_visits_total": 0,
+            "iron_pills": 0,
+            "pregnancy_sickness": 1
+        }
+    }
+]

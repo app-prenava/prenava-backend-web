@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\DeteksiPenyakit;
 use App\Models\PrediksiDepresi;
 use App\Models\Prediction;
+use App\Models\HealthScanHistory;
 
 
 class HomeController extends Controller
@@ -48,11 +49,20 @@ class HomeController extends Controller
                 ->get();
         });
 
+        $riwayatAnemia = Cache::remember('riwayat_anemia_count', 300, function () {
+            return HealthScanHistory::where('type', 'anemia')
+                ->with('user')
+                ->latest()
+                ->limit(100)
+                ->get();
+        });
+
         return view('bidan.dashboard', [
             'ibuHamil' => $ibuHamil,
             'deteksiPenyakit' => $deteksiPenyakit,
             'prediksiDepresi' => $prediksiDepresi,
-            'prediksiJanin' => $prediksiJanin
+            'prediksiJanin' => $prediksiJanin,
+            'riwayatAnemia' => $riwayatAnemia
         ]);
     }
 
@@ -87,11 +97,20 @@ class HomeController extends Controller
                 ->get();
         });
 
+        $riwayatAnemia = Cache::remember('riwayat_anemia_count', 300, function () {
+            return HealthScanHistory::where('type', 'anemia')
+                ->with('user')
+                ->latest()
+                ->limit(100)
+                ->get();
+        });
+
         return view('dinkes.dashboardd', [
             'ibuHamil' => $ibuHamil,
             'deteksiPenyakit' => $deteksiPenyakit,
             'prediksiDepresi' => $prediksiDepresi,
-            'prediksiJanin' => $prediksiJanin
+            'prediksiJanin' => $prediksiJanin,
+            'riwayatAnemia' => $riwayatAnemia
         ]);
     }
      public function create()
@@ -157,11 +176,18 @@ class HomeController extends Controller
             ->limit(5)
             ->get();
 
+        $riwayatAnemia = HealthScanHistory::where('user_id', $id)
+            ->where('type', 'anemia')
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get();
+
         return view('ibu_hamil.detail', compact(
             'ibuHamil', 
             'deteksiPenyakit', 
             'prediksiDepresi', 
-            'prediksiJanin'
+            'prediksiJanin',
+            'riwayatAnemia'
         ));
     }
 
@@ -287,11 +313,17 @@ class HomeController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
+        $riwayatAnemia = HealthScanHistory::where('user_id', $id)
+            ->where('type', 'anemia')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return view('bidan.ibu-hamil.medical-history', compact(
             'ibuHamil',
             'deteksiPenyakit',
             'prediksiDepresi', 
-            'prediksiJanin'
+            'prediksiJanin',
+            'riwayatAnemia'
         ));
     }
 

@@ -115,40 +115,40 @@ class AuthController extends Controller
             ]);
         }
 
-        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        DB::table('email_verification_otps')->updateOrInsert(
-            ['email' => $request->email],
-            [
-                'otp'        => Hash::make($otp),
-                'expires_at' => Carbon::now()->addMinutes(15),
-                'created_at' => Carbon::now(),
-                'updated_at' => Carbon::now(),
-            ]
-        );
+        // $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        // DB::table('email_verification_otps')->updateOrInsert(
+        //     ['email' => $request->email],
+        //     [
+        //         // 'otp'        => Hash::make($otp),
+        //         // 'expires_at' => Carbon::now()->addMinutes(15),
+        //         // 'created_at' => Carbon::now(),
+        //         // 'updated_at' => Carbon::now(),
+        //     ]
+        // );
 
-        try {
-            Mail::to($request->email)->send(new EmailVerificationOtpMail($otp, $user->name));
-        } catch (\Exception $e) {
-            // Dev fallback: return OTP in response
-            return response()->json([
-                'status'  => 'success',
-                'message' => 'Registrasi berhasil. (Dev: OTP = ' . $otp . ')',
-                'user'    => $this->userPayload($user),
-            ]);
-        }
+        // try {
+        //     Mail::to($request->email)->send(new EmailVerificationOtpMail($otp, $user->name));
+        // } catch (\Exception $e) {
+        //     // Dev fallback: return OTP in response
+        //     return response()->json([
+        //         // 'status'  => 'success',
+        //         // 'message' => 'Registrasi berhasil. (Dev: OTP = ' . $otp . ')',
+        //         // 'user'    => $this->userPayload($user),
+        //     ]);
+        // }
 
-        ActivityLogService::logFromUser(
-            ActivityLog::TYPE_REGISTER,
-            $user,
-            "User {$user->name} berhasil melakukan registrasi. Menunggu verifikasi email.",
-            request: $request
-        );
+        // ActivityLogService::logFromUser(
+        //     ActivityLog::TYPE_REGISTER,
+        //     $user,
+        //     "User {$user->name} berhasil melakukan registrasi. Menunggu verifikasi email.",
+        //     request: $request
+        // );
 
-        return response()->json([
-            'status'  => 'success',
-            'message' => 'Registrasi berhasil. Silakan cek email untuk kode OTP verifikasi.',
-            'user'    => $this->userPayload($user),
-        ]);
+        // return response()->json([
+        //     'status'  => 'success',
+        //     'message' => 'Registrasi berhasil. Silakan cek email untuk kode OTP verifikasi.',
+        //     'user'    => $this->userPayload($user),
+        // ]);
     }
 
     public function login(Request $request): JsonResponse
@@ -221,22 +221,22 @@ class AuthController extends Controller
     {
         $v = Validator::make($request->all(), [
             'email' => ['required', 'email'],
-            'otp'   => ['required', 'string', 'size:6'],
+            // 'otp'   => ['required', 'string', 'size:6'],
         ]);
         if ($v->fails()) return response()->json($v->errors(), 422);
 
-        $record = DB::table('email_verification_otps')->where('email', $request->email)->first();
-        if (!$record) {
-            return response()->json(['status' => 'error', 'message' => 'OTP tidak ditemukan. Silakan kirim ulang.'], 400);
-        }
+        // $record = DB::table('email_verification_otps')->where('email', $request->email)->first();
+        // if (!$record) {
+        //     return response()->json(['status' => 'error', 'message' => 'OTP tidak ditemukan. Silakan kirim ulang.'], 400);
+        // }
 
-        if (Carbon::now()->isAfter($record->expires_at)) {
-            return response()->json(['status' => 'error', 'message' => 'OTP telah kedaluwarsa. Silakan kirim ulang.'], 400);
-        }
+        // if (Carbon::now()->isAfter($record->expires_at)) {
+        //     return response()->json(['status' => 'error', 'message' => 'OTP telah kedaluwarsa. Silakan kirim ulang.'], 400);
+        // }
 
-        if (!Hash::check($request->otp, $record->otp)) {
-            return response()->json(['status' => 'error', 'message' => 'OTP tidak valid.'], 400);
-        }
+        // if (!Hash::check($request->otp, $record->otp)) {
+        //     return response()->json(['status' => 'error', 'message' => 'OTP tidak valid.'], 400);
+        // }
 
         $user = User::where('email', $request->email)->first();
         if (!$user) {
@@ -278,26 +278,28 @@ class AuthController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Email sudah diverifikasi.'], 400);
         }
 
-        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-        DB::table('email_verification_otps')->updateOrInsert(
-            ['email' => $request->email],
-            [
-                'otp'        => Hash::make($otp),
-                'expires_at' => Carbon::now()->addMinutes(15),
-                'created_at' => Carbon::now(),
-                'updated_at' => Carbon::now(),
-            ]
-        );
+        // $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        // DB::table('email_verification_otps')->updateOrInsert(
+        //     ['email' => $request->email],
+        //     [
+        //         // 'otp'        => Hash::make($otp),
+        //         // 'expires_at' => Carbon::now()->addMinutes(15),
+        //         // 'created_at' => Carbon::now(),
+        //         // 'updated_at' => Carbon::now(),
+        //     ]
+        // );
 
-        try {
-            Mail::to($request->email)->send(new EmailVerificationOtpMail($otp, $user->name));
-            return response()->json(['status' => 'success', 'message' => 'OTP verifikasi telah dikirim ulang.']);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status'  => 'success',
-                'message' => 'Dev mode: OTP = ' . $otp,
-            ]);
-        }
+        // try {
+        //     Mail::to($request->email)->send(new EmailVerificationOtpMail($otp, $user->name));
+        //     return response()->json(['status' => 'success', 'message' => 'OTP verifikasi telah dikirim ulang.']);
+        // } catch (\Exception $e) {
+        //     return response()->json([
+        //         // 'status'  => 'success',
+        //         // 'message' => 'Dev mode: OTP = ' . $otp,
+        //     ]);
+        // }
+        
+        return response()->json(['status' => 'success', 'message' => 'Fitur OTP dinonaktifkan sementara.']);
     }
 
     public function logout(Request $request): JsonResponse

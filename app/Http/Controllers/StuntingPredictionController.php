@@ -2,134 +2,318 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StuntingPredictRequest;
-use App\Http\Resources\StuntingPredictionResource;
-use App\Services\StuntingPredictionService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Exception;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use App\Models\StuntingPrediction;
+
 
 class StuntingPredictionController extends Controller
 {
-    private StuntingPredictionService $service;
+    private $mlApiUrl;
 
-    public function __construct(StuntingPredictionService $service)
+    public function __construct()
     {
-        $this->service = $service;
+        $this->mlApiUrl = env('ML_API_URL', 'http://127.0.0.1:5000/predict');
     }
 
     /**
-     * POST /api/stunting/predict
-     *
-     * Receive humanized input → map → call ML → store → return result.
+     * Endpoint untuk mengambil format pertanyaan form skrining Stunting
+     * GET /api/stunting/questions
      */
-    public function predict(StuntingPredictRequest $request): JsonResponse
+    public function getQuestions()
     {
-        $user = $request->user();
-
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 401);
-        }
-
-        try {
-            $prediction = $this->service->predict(
-                $request->validated(),
-                $user->user_id
-            );
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Prediksi stunting berhasil.',
-                'data'    => new StuntingPredictionResource($prediction),
-            ], 201);
-
-        } catch (Exception $e) {
-            $code = in_array($e->getCode(), [502, 504]) ? $e->getCode() : 500;
-
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], $code);
-        }
-    }
-
-    /**
-     * GET /api/stunting/history
-     *
-     * Paginated prediction history for authenticated user.
-     */
-    public function history(Request $request): JsonResponse
-    {
-        $user = $request->user();
-
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 401);
-        }
-
-        $perPage = (int) $request->query('per_page', 10);
-        $perPage = min(max($perPage, 1), 50);
-
-        $paginated = $this->service->getHistory($user->user_id, $perPage);
+        $questions = [
+            [
+                'key' => 'mother_height',
+                'label' => 'Tinggi Ibu (cm)',
+                'type' => 'number',
+                'unit' => 'cm'
+            ],
+            [
+                'key' => 'mother_weight',
+                'label' => 'Berat Badan Ibu (kg)',
+                'type' => 'number',
+                'unit' => 'kg'
+            ],
+            [
+                'key' => 'maternal_hemoglobin',
+                'label' => 'Hemoglobin Ibu (g/dL)',
+                'type' => 'number',
+                'unit' => 'g/dL'
+            ],
+            [
+                'key' => 'mother_age',
+                'label' => 'Usia Ibu',
+                'type' => 'number',
+                'unit' => 'tahun'
+            ],
+            [
+                'key' => 'mother_education',
+                'label' => 'Pendidikan Ibu (Tahun)',
+                'type' => 'number',
+                'unit' => 'tahun'
+            ],
+            [
+                'key' => 'anc_visits_total',
+                'label' => 'Total Kunjungan ANC',
+                'type' => 'number',
+                'unit' => 'kali'
+            ],
+            [
+                'key' => 'iron_pills',
+                'label' => 'Konsumsi Pil Besi',
+                'type' => 'select',
+                'options' => [
+                    ['value' => '1', 'label' => 'Ya'],
+                    ['value' => '0', 'label' => 'Tidak']
+                ]
+            ],
+            [
+                'key' => 'pregnancy_sickness',
+                'label' => 'Sakit Selama Kehamilan',
+                'type' => 'select',
+                'options' => [
+                    ['value' => '1', 'label' => 'Ya'],
+                    ['value' => '0', 'label' => 'Tidak']
+                ]
+            ],
+        ];
 
         return response()->json([
             'success' => true,
-            'data'    => StuntingPredictionResource::collection($paginated->items()),
-            'meta'    => [
-                'current_page' => $paginated->currentPage(),
-                'last_page'    => $paginated->lastPage(),
-                'per_page'     => $paginated->perPage(),
-                'total'        => $paginated->total(),
-            ],
+            'data' => $questions
+        ]);
+    }
+
+
+
+    /**
+     * Endpoint API ML Stunting
+     * POST /api/stunting/predict
+     */
+    public function predict(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'mother_height' => 'required|numeric|min:100|max:250',
+            'mother_weight' => 'required|numeric|min:30|max:200',
+            'maternal_hemoglobin' => 'required|numeric|min:5|max:20',
+            'mother_age' => 'required|numeric|min:12|max:60',
+            'mother_education' => 'required|numeric|min:0|max:25',
+            'anc_visits_total' => 'required|numeric|min:0|max:20',
+            'iron_pills' => 'required|numeric|in:0,1',
+            'pregnancy_sickness' => 'required|numeric|in:0,1',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        try {
+            $payload = $validator->validated();
+            
+            // Konversi boolean/string dari form ke integer
+            $payload['iron_pills'] = (int) $payload['iron_pills'];
+            $payload['pregnancy_sickness'] = (int) $payload['pregnancy_sickness'];
+
+            $healthScore = 0;
+            if ($payload['mother_height'] < 150) $healthScore += 2;
+            if ($payload['mother_weight'] < 50) $healthScore += 1;
+            if ($payload['maternal_hemoglobin'] < 11.0) $healthScore += 2;
+            if ($payload['anc_visits_total'] < 4) $healthScore += 1;
+            if ($payload['iron_pills'] == 0) $healthScore += 1;
+            if ($payload['pregnancy_sickness'] == 1) $healthScore += 1;
+
+            if ($healthScore >= 5) {
+                $payload['child_height'] = 50.0;
+            } else if ($healthScore >= 2) {
+                $payload['child_height'] = 61.0;
+            } else {
+                $payload['child_height'] = 64.5;
+            }
+
+            $payload['child_age_years'] = 0;
+            $payload['birth_weight'] = 3.2;
+            $payload['child_gender'] = 1;
+            $payload['birth_order'] = 1;
+
+            $startTime = microtime(true);
+            $response = Http::timeout(10)->post($this->mlApiUrl, $payload);
+            $latencyMs = (int) round((microtime(true) - $startTime) * 1000);
+
+            if ($response->successful()) {
+                $result = $response->json();
+                
+                $riskLevel = $result['prediction_class'] ?? 0;
+                $score = $result['probability'] ?? 0.0;
+                $riskLabel = $riskLevel == 1 ? "Tinggi" : ($riskLevel == 2 ? "Sedang" : "Rendah");
+                
+                $recommendationText = "Kondisi kehamilan Anda sehat. Pertahankan pola makan bergizi dan rutin periksa kehamilan (ANC).";
+                if ($riskLevel == 1) {
+                    $recommendationText = "Risiko stunting tinggi. Segera jadwalkan konsultasi dengan dokter kandungan Anda dan perhatikan asupan nutrisi.";
+                } elseif ($riskLevel == 2) {
+                    $recommendationText = "Risiko stunting sedang. Tingkatkan asupan makanan kaya protein hewani dan zat besi.";
+                }
+
+                $predictionRecord = null;
+                if (Auth::check()) {
+                    $predictionRecord = StuntingPrediction::create([
+                        'user_id' => Auth::id(),
+                        'input_data' => $payload,
+                        'ml_payload' => $payload,
+                        'ml_response' => $result,
+                        'probability' => $score,
+                        'prediction' => $riskLevel,
+                        'risk_label' => $riskLabel,
+                        'recommendations' => [$recommendationText],
+                        'latency_ms' => $latencyMs,
+                        'status' => StuntingPrediction::STATUS_SUCCESS,
+                    ]);
+                }
+
+                $outputData = [
+                    'score' => (float) $score,
+                    'riskLevel' => (int) $riskLevel,
+                    'riskLabel' => $riskLabel,
+                    'recommendation' => $recommendationText,
+                    'predictionId' => $predictionRecord ? $predictionRecord->id : 0,
+                ];
+
+                return response()->json([
+                    'success' => true,
+                    'data' => $outputData
+                ], 200);
+            } else {
+                Log::error('ML API Error: ' . $response->body());
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal mendapatkan prediksi dari server ML.'
+                ], 500);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Stunting Prediction Exception: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan internal server saat memproses prediksi. Detail: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Mengambil riwayat prediksi user
+     * GET /api/stunting/history
+     * 
+     * OPSI 1: Bidan bisa lihat SEMUA data
+     * User lain hanya lihat data sendiri
+     */
+    public function history()
+    {
+        $user = Auth::user();
+        
+        // OPSI 1: Bidan bisa lihat SEMUA data
+        if ($user->role === 'bidan') {
+            $query = StuntingPrediction::with('user:user_id,name,email')
+                ->where('status', StuntingPrediction::STATUS_SUCCESS)
+                ->latest();
+        } else {
+            // User lain hanya lihat data sendiri
+            $userId = Auth::id();
+            $query = StuntingPrediction::where('user_id', $userId)
+                ->where('status', StuntingPrediction::STATUS_SUCCESS)
+                ->latest();
+        }
+        
+        $history = $query->get()
+            ->map(function ($item) {
+                $data = [
+                    'id' => $item->id,
+                    'date' => $item->created_at->toIso8601String(),
+                    'status' => $item->status,
+                    'riskLevel' => $item->prediction,
+                    'score' => (float) $item->probability,
+                ];
+                
+                // Tambahkan info user jika bidan mengakses
+                if ($item->user) {
+                    $data['user'] = [
+                        'user_id' => $item->user->user_id,
+                        'name' => $item->user->name,
+                        'email' => $item->user->email,
+                    ];
+                }
+                
+                return $data;
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => $history
         ]);
     }
 
     /**
+     * Mengambil detail riwayat tertentu
      * GET /api/stunting/history/{id}
-     *
-     * Single prediction detail (ownership-scoped).
+     * 
+     * OPSI 1: Bidan bisa lihat SEMUA data
+     * User lain hanya lihat data sendiri
      */
-    public function show(Request $request, int $id): JsonResponse
+    public function historyDetail($id)
     {
-        $user = $request->user();
-
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Unauthorized',
-            ], 401);
+        $user = Auth::user();
+        
+        // OPSI 1: Bidan bisa lihat SEMUA data, user lain hanya data sendiri
+        if ($user->role === 'bidan') {
+            $prediction = StuntingPrediction::with('user:user_id,name,email')
+                ->where('id', $id)
+                ->first();
+        } else {
+            $userId = Auth::id();
+            $prediction = StuntingPrediction::where('user_id', $userId)
+                ->where('id', $id)
+                ->first();
         }
-
-        $prediction = $this->service->getDetail($user->user_id, $id);
 
         if (!$prediction) {
             return response()->json([
                 'success' => false,
-                'message' => 'Data prediksi tidak ditemukan.',
+                'message' => 'Riwayat tidak ditemukan.'
             ], 404);
+        }
+
+        $recommendationText = !empty($prediction->recommendations) 
+            ? $prediction->recommendations[0] 
+            : "Tidak ada rekomendasi.";
+
+        $outputData = [
+            'score' => (float) $prediction->probability,
+            'riskLevel' => (int) $prediction->prediction,
+            'riskLabel' => $prediction->risk_label,
+            'recommendation' => $recommendationText,
+            'predictionId' => $prediction->id,
+            'inputData' => $prediction->input_data,
+            'aiMealPlan' => $prediction->ai_meal_plan,
+        ];
+        
+        // Tambahkan info user jika bidan mengakses
+        if ($user->role === 'bidan' && $prediction->user) {
+            $outputData['user'] = [
+                'user_id' => $prediction->user->user_id,
+                'name' => $prediction->user->name,
+                'email' => $prediction->user->email,
+            ];
         }
 
         return response()->json([
             'success' => true,
-            'data'    => new StuntingPredictionResource($prediction),
-        ]);
-    }
-
-    /**
-     * GET /api/stunting/questions
-     *
-     * Questionnaire metadata for mobile frontend rendering.
-     */
-    public function questions(): JsonResponse
-    {
-        return response()->json([
-            'success' => true,
-            'data'    => StuntingPredictionService::getQuestions(),
+            'data' => $outputData
         ]);
     }
 }

@@ -225,7 +225,7 @@ class Appointment extends Model
         $userData = [];
         $user = $this->user;
 
-        // Map fields based on consent
+        // Map basic fields based on consent
         $fieldMapping = [
             'name' => $user->name ?? null,
             'email' => $user->email ?? null,
@@ -239,6 +239,27 @@ class Appointment extends Model
             if (isset($sharedFields[$field]) && $sharedFields[$field] === true) {
                 $userData[$field] = $value;
             }
+        }
+
+        // Check if health_history is shared
+        if (isset($sharedFields['health_history']) && $sharedFields['health_history'] === true) {
+            // Include Anemia History
+            $userData['anemia_history'] = $user->deteksiPenyakit()
+                ->latest()
+                ->take(5) // Limit to last 5
+                ->get(['id', 'mata_kiri', 'mata_kanan', 'hasil_mata_kiri', 'hasil_mata_kanan', 'created_at']);
+                
+            // Include Depression History
+            $userData['depression_history'] = $user->prediksiDepresi()
+                ->latest()
+                ->take(5) // Limit to last 5
+                ->get(['id', 'confidence_score', 'depression_level', 'created_at']);
+                
+            // Include Stunting History
+            $userData['stunting_history'] = $user->stuntingPredictions()
+                ->latest()
+                ->take(5)
+                ->get(['prediction_id', 'risk_category', 'risk_score', 'created_at']);
         }
 
         return $userData;

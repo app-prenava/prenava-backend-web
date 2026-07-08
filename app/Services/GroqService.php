@@ -1,0 +1,207 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Exception;
+
+class GroqService
+{
+    private string $apiKey;
+    private string $model;
+    private int $timeout;
+
+    public function __construct()
+    {
+        $this->apiKey  = config('services.groq.api_key', env('GROQ_API_KEY', ''));
+        $this->model   = config('services.groq.model', env('GROQ_MODEL', 'llama-3.3-70b-versatile'));
+        $this->timeout = (int) config('services.groq.timeout', env('GROQ_TIMEOUT', 30));
+    }
+
+    /**
+     * Generate cooking guide for recommended foods.
+     */
+    public function getCookingGuide(array $foodNames): ?array
+    {
+        $foodList = implode(', ', $foodNames);
+
+        $prompt = <<<PROMPT
+Kamu adalah ahli gizi untuk ibu hamil. Berikan panduan memasak sehat menggunakan bahan-bahan berikut:
+
+Bahan: {$foodList}
+
+Berikan respons dalam format JSON berikut (tanpa markdown, hanya JSON murni):
+{
+  "cooking_guide": "Langkah-langkah memasak sehat...",
+  "nutrition_tips": "Tips nutrisi untuk ibu hamil...",
+  "meal_plan": "Saran menu harian..."
+}
+
+Gunakan bahasa Indonesia sederhana yang mudah dipahami ibu hamil.
+Fokus pada cara memasak yang mempertahankan nutrisi.
+Jangan gunakan MSG atau pengawet.
+PROMPT;
+
+        return $this->callGroq($prompt);
+    }
+
+    /**
+     * Generate dynamic and personalized meal plan based on user health profile.
+     */
+    public function generateDynamicMealPlan(array $userProfile): ?array
+    {
+        $profileJson = json_encode($userProfile, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        
+        $durasi = $userProfile['durasi'] ?? 'sehari';
+
+        $formatRekomendasi = "";
+        if ($durasi === 'seminggu') {
+            $formatRekomendasi = <<<FORMAT
+  "rekomendasi_menu": {
+    "senin": {
+      "sarapan": { "menu": ["...", "..."], "alasan": "..." },
+      "makan_siang": { "menu": ["...", "..."], "alasan": "..." },
+      "makan_malam": { "menu": ["...", "..."], "alasan": "..." }
+    },
+    "selasa": { "sarapan": {...}, "makan_siang": {...}, "makan_malam": {...} },
+    "rabu": { "sarapan": {...}, "makan_siang": {...}, "makan_malam": {...} },
+    "kamis": { "sarapan": {...}, "makan_siang": {...}, "makan_malam": {...} },
+    "jumat": { "sarapan": {...}, "makan_siang": {...}, "makan_malam": {...} },
+    "sabtu": { "sarapan": {...}, "makan_siang": {...}, "makan_malam": {...} },
+    "minggu": { "sarapan": {...}, "makan_siang": {...}, "makan_malam": {...} }
+  }
+FORMAT;
+        } else {
+            $formatRekomendasi = <<<FORMAT
+  "rekomendasi_menu": {
+    "sarapan": {
+      "menu": ["...", "..."],
+      "alasan": "..."
+    },
+    "makan_siang": {
+      "menu": ["...", "..."],
+      "alasan": "..."
+    },
+    "makan_malam": {
+      "menu": ["...", "..."],
+      "alasan": "..."
+    }
+  }
+FORMAT;
+        }
+
+        $prompt = <<<PROMPT
+Kamu adalah ahli gizi prenatal (kehamilan) tingkat lanjut.
+Patuhi standar "Pedoman Gizi Seimbang Ibu Hamil" dari Kementerian Kesehatan RI (Isi Piringku untuk Ibu Hamil).
+Berikut adalah profil kesehatan, kondisi, dan preferensi dari seorang ibu hamil:
+{$profileJson}
+
+Tugasmu:
+1. JANGAN menebak angka kalori/protein! Gunakan angka PASTI dari 'kebutuhan_kalori_harian_tepat' dan 'kebutuhan_protein_harian_tepat' yang ada di profil.
+2. Personalisasi menu SANGAT SPESIFIK untuk profil ibu ini! Jika Hb rendah, perbanyak sumber zat besi. Jika BMI rendah/kurang energi kronis, tingkatkan porsi padat kalori bergizi. Jika BMI berlebih, fokus pada makanan tinggi serat rendah lemak.
+3. Buatkan rekomendasi menu {$durasi} yang sehat untuk ibu hamil, menggunakan bahan lokal Indonesia sesuai pedoman gizi Kemenkes RI, dan WAJIB mematuhi pantangannya.
+   - PENTING: Menu harus bervariasi setiap harinya (jika seminggu). Pilih makanan padat gizi (ikan, ayam, telur, daging sapi, sayur hijau segar). Hindari santan kental, makanan kaleng, dan makanan terlalu manis.
+4. Berikan saran personal yang suportif dan spesifik berdasarkan kondisi kehamilannya (skor stunting, berat badan, atau Hb).
+
+Berikan respons HANYA dalam format JSON dengan struktur persis seperti ini:
+{
+  "analisis_gizi": [
+    {
+      "nutrisi": "Kalori",
+      "status": "Terpenuhi / Kurang / Berlebih",
+      "kebutuhan": "...",
+      "asupan": "...",
+      "catatan": "..."
+    }
+  ],
+{$formatRekomendasi},
+  "saran_ai": [
+    "...",
+    "..."
+  ],
+  "catatan": "Rekomendasi ini disusun berdasarkan Pedoman Gizi Ibu Hamil Kemenkes RI dan profil kesehatan ibu..."
+}
+
+Pastikan format JSON valid agar bisa di-parsing oleh sistem.
+PROMPT;
+
+        return $this->callGroq($prompt);
+    }
+
+    /**
+     * Call Groq API and parse the JSON response.
+     */
+    private function callGroq(string $prompt): ?array
+    {
+        if (empty($this->apiKey)) {
+            Log::warning('GroqService: No API key configured');
+            return null;
+        }
+
+        $url = "https://api.groq.com/openai/v1/chat/completions";
+
+        try {
+            $response = Http::timeout($this->timeout)
+                ->retry(2, 500)
+                ->withToken($this->apiKey)
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($url, [
+                    'model' => $this->model,
+                    'messages' => [
+                        ['role' => 'system', 'content' => 'Kamu adalah asisten AI yang pandai berbahasa Indonesia dan hanya membalas dengan format JSON valid.'],
+                        ['role' => 'user', 'content' => $prompt]
+                    ],
+                    'temperature' => 0.5,
+                    'response_format' => ['type' => 'json_object']
+                ]);
+
+            if ($response->failed()) {
+                Log::error('GroqService: API error', [
+                    'status' => $response->status(),
+                    'body'   => $response->body(),
+                ]);
+                return null;
+            }
+
+            return $this->parseResponse($response->json());
+
+        } catch (Exception $e) {
+            Log::error('GroqService: Request failed', [
+                'message' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    private function parseResponse(?array $response): ?array
+    {
+        if (empty($response)) {
+            return null;
+        }
+
+        $text = $response['choices'][0]['message']['content'] ?? null;
+
+        if (empty($text)) {
+            return null;
+        }
+
+        // Strip markdown code fences if present
+        $text = preg_replace('/^```json\s*/', '', $text);
+        $text = preg_replace('/\s*```$/', '', $text);
+        $text = trim($text);
+
+        $parsed = json_decode($text, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            Log::warning('GroqService: Failed to parse JSON response', [
+                'raw_text' => substr($text, 0, 500),
+            ]);
+            return ['raw_text' => $text];
+        }
+
+        return is_array($parsed) ? $parsed : null;
+    }
+}

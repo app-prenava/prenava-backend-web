@@ -7,7 +7,6 @@ use App\Http\Controllers\CatatanController;
 use App\Http\Controllers\KomunitasController;
 use App\Http\Controllers\PrediksiDepresiController;
 use App\Http\Controllers\DepressionScanController;
-use App\Http\Controllers\RekomendasiMakananController;
 use App\Http\Controllers\KickCounterController;
 use App\Http\Controllers\SkorEpdsController;
 use App\Http\Controllers\PredictionController;
@@ -39,6 +38,7 @@ use App\Http\Controllers\CatatanIbuController;
 use App\Http\Controllers\HistoryLogController;
 use App\Http\Controllers\DailyFeatureController;
 use App\Http\Controllers\LocalWisdomController;
+use App\Http\Controllers\MealPlanController;
 use App\Http\Controllers\StuntingPredictionController;
 use App\Http\Controllers\FoodRecommendationController;
 use App\Http\Controllers\UserFoodPreferenceController;
@@ -58,6 +58,8 @@ Route::post('/recomendation/sport-sync', [RecomendationSportController::class, '
 Route::get('/ml-service/sport-rules', [RecomendationSportController::class, 'getSportRulesForSync']);
 Route::get('/show-data-age-lmp', [ShowDataUserDashboard::class, 'showDataAgeLmp']);
 
+
+// Endpoint Prediksi Stunting
 
 Route::get('/debug/redis-likes', [RedisDebugController::class, 'likes']);
 Route::prefix('parameterized')->group(function () {
@@ -241,9 +243,7 @@ Route::group(['middleware' => 'auth:api'], function () {
     Route::get('/epds', [SkorEpdsController::class, 'index']);
     Route::get('/epds/{id}', [SkorEpdsController::class, 'show']);
 
-    // Rekomendasi Makanan
-    Route::get('/rekomendasimakanan', [RekomendasiMakananController::class, 'index']);
-    Route::get('/rekomendasimakanan/{id}', [RekomendasiMakananController::class, 'show']);
+
 
     // Kick Counter
     Route::get('/kick-counter', [KickCounterController::class, 'index']);
@@ -303,6 +303,12 @@ Route::group(['middleware' => 'auth:api'], function () {
 
     // Anemia Eye Scan
     Route::post('/anemia-scan', [App\Http\Controllers\AnemiaScanController::class, 'scan']);
+
+    // Stunting Prediction & Foods
+    Route::get('/stunting/questions', [StuntingPredictionController::class, 'getQuestions']);
+    Route::post('/stunting/predict', [StuntingPredictionController::class, 'predict']);
+    Route::get('/stunting/history', [StuntingPredictionController::class, 'history']);
+    Route::get('/stunting/history/{id}', [StuntingPredictionController::class, 'historyDetail']);
 });
 
 
@@ -410,51 +416,7 @@ Route::prefix('user')->middleware(['auth:api'])->group(function () {
     Route::get('/local-wisdom', [LocalWisdomController::class, 'index']);
     Route::post('/local-wisdom/toggle', [LocalWisdomController::class, 'toggle']);
     Route::get('/local-wisdom/analytics', [LocalWisdomController::class, 'analytics']);
+
+    // Meal Plan (AI Generated)
+    Route::post('/meal-plan/generate', [MealPlanController::class, 'generateMealPlan']);
 });
-
-// ============================================
-// STUNTING RISK PREDICTION
-// ============================================
-
-// Public: questionnaire metadata (no auth required)
-Route::get('/stunting/questions', [StuntingPredictionController::class, 'questions']);
-
-// Protected: prediction + history
-Route::prefix('stunting')->middleware(['auth:api'])->group(function () {
-    Route::post('/predict',      [StuntingPredictionController::class, 'predict']);
-    Route::get('/history',       [StuntingPredictionController::class, 'history']);
-    Route::get('/history/{id}',  [StuntingPredictionController::class, 'show']);
-
-    // Recommendations (on-demand, after prediction)
-    Route::get('/recommendations/{prediction_id}', [FoodRecommendationController::class, 'recommendations']);
-
-    // Gemini AI educational endpoints
-    Route::post('/gemini/cooking-guide', [FoodRecommendationController::class, 'cookingGuide']);
-    Route::post('/gemini/meal-plan',     [FoodRecommendationController::class, 'mealPlan']);
-    Route::post('/meal-plans/generate',  [FoodRecommendationController::class, 'generateDailyPlan']);
-    Route::post('/meal-plans',           [FoodRecommendationController::class, 'createWeeklyPlan']);
-    Route::get('/meal-plans/current',    [FoodRecommendationController::class, 'currentPlan']);
-    Route::get('/meal-plans/history',    [FoodRecommendationController::class, 'planHistory']);
-    Route::post('/meal-plans/{id}/refresh-day', [FoodRecommendationController::class, 'refreshPlanDay']);
-    Route::get('/meal-plans/{id}/progress', [FoodRecommendationController::class, 'mealPlanProgress']);
-    Route::post('/meal-plans/items/{item_id}/completion', [FoodRecommendationController::class, 'setMealItemCompletion']);
-
-    // Personalization preferences
-    Route::get('/preferences',  [UserFoodPreferenceController::class, 'show']);
-    Route::post('/preferences', [UserFoodPreferenceController::class, 'upsert']);
-
-    // AI support (safe fallback on failure)
-    Route::post('/ai/nutrition-paragraph', [FoodRecommendationController::class, 'nutritionParagraph']);
-    Route::get('/ai/preference-questions', [FoodRecommendationController::class, 'preferenceQuestions']);
-    Route::post('/ai/prompt-foods',        [FoodRecommendationController::class, 'promptFoods']);
-});
-
-// Public: food catalog (no auth required)
-Route::get('/stunting/foods',      [FoodRecommendationController::class, 'index']);
-Route::get('/stunting/foods/{id}', [FoodRecommendationController::class, 'show']);
-Route::get('/stunting/recipes', [FoodRecommendationController::class, 'recipesIndex']);
-Route::get('/stunting/recipes/categories', [FoodRecommendationController::class, 'recipeCategories']);
-Route::get('/stunting/recipes/by-id/{recipe_id}', [FoodRecommendationController::class, 'recipeById'])
-    ->whereNumber('recipe_id');
-Route::get('/stunting/recipes/{food_id}', [FoodRecommendationController::class, 'recipe'])
-    ->whereNumber('food_id');
