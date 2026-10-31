@@ -16,7 +16,11 @@ class StuntingPredictionController extends Controller
 
     public function __construct()
     {
-        $this->mlApiUrl = env('ML_API_URL', 'http://127.0.0.1:5000/predict');
+        $rawUrl = config('services.ml.stunting_predict', env('ML_API_URL', 'http://127.0.0.1:5000/predict'));
+        if (file_exists('/.dockerenv')) {
+            $rawUrl = str_replace(['127.0.0.1', 'localhost'], 'host.docker.internal', $rawUrl);
+        }
+        $this->mlApiUrl = $rawUrl;
     }
 
     /**
@@ -30,42 +34,57 @@ class StuntingPredictionController extends Controller
                 'key' => 'mother_height',
                 'label' => 'Tinggi Ibu (cm)',
                 'type' => 'number',
-                'unit' => 'cm'
+                'unit' => 'cm',
+                'required' => true,
             ],
             [
                 'key' => 'mother_weight',
                 'label' => 'Berat Badan Ibu (kg)',
                 'type' => 'number',
-                'unit' => 'kg'
+                'unit' => 'kg',
+                'required' => true,
             ],
             [
                 'key' => 'maternal_hemoglobin',
                 'label' => 'Hemoglobin Ibu (g/dL)',
                 'type' => 'number',
-                'unit' => 'g/dL'
+                'unit' => 'g/dL',
+                'required' => true,
             ],
             [
                 'key' => 'mother_age',
-                'label' => 'Usia Ibu',
+                'label' => 'Usia Ibu (Tahun)',
                 'type' => 'number',
-                'unit' => 'tahun'
+                'unit' => 'tahun',
+                'required' => true,
             ],
             [
                 'key' => 'mother_education',
-                'label' => 'Pendidikan Ibu (Tahun)',
-                'type' => 'number',
-                'unit' => 'tahun'
+                'label' => 'Pendidikan Ibu',
+                'type' => 'select',
+                'required' => true,
+                'options' => [
+                    ['value' => '0', 'label' => 'Tidak Pernah Sekolah (0 Tahun)'],
+                    ['value' => '6', 'label' => 'SD / Sederajat (6 Tahun)'],
+                    ['value' => '9', 'label' => 'SMP / Sederajat (9 Tahun)'],
+                    ['value' => '12', 'label' => 'SMA / SMK / Sederajat (12 Tahun)'],
+                    ['value' => '15', 'label' => 'Diploma / D3 (15 Tahun)'],
+                    ['value' => '16', 'label' => 'Sarjana / S1 / D4 (16 Tahun)'],
+                    ['value' => '18', 'label' => 'Magister / S2+ (18+ Tahun)'],
+                ]
             ],
             [
                 'key' => 'anc_visits_total',
                 'label' => 'Total Kunjungan ANC',
                 'type' => 'number',
-                'unit' => 'kali'
+                'unit' => 'kali',
+                'required' => true,
             ],
             [
                 'key' => 'iron_pills',
                 'label' => 'Konsumsi Pil Besi',
                 'type' => 'select',
+                'required' => true,
                 'options' => [
                     ['value' => '1', 'label' => 'Ya'],
                     ['value' => '0', 'label' => 'Tidak']
@@ -75,6 +94,7 @@ class StuntingPredictionController extends Controller
                 'key' => 'pregnancy_sickness',
                 'label' => 'Sakit Selama Kehamilan',
                 'type' => 'select',
+                'required' => true,
                 'options' => [
                     ['value' => '1', 'label' => 'Ya'],
                     ['value' => '0', 'label' => 'Tidak']
@@ -96,7 +116,46 @@ class StuntingPredictionController extends Controller
      */
     public function predict(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        $input = $request->all();
+
+        // Normalisasi Fleksibel Pendidikan Ibu
+        if (isset($input['mother_education'])) {
+            $edu = strtolower(trim((string)$input['mother_education']));
+            $eduMap = [
+                'tidak_sekolah' => 0,
+                'tidak sekolah' => 0,
+                'sd' => 6,
+                'smp' => 9,
+                'sma' => 12,
+                'smk' => 12,
+                'diploma' => 15,
+                'd3' => 15,
+                'd4' => 16,
+                'sarjana' => 16,
+                's1' => 16,
+                'magister' => 18,
+                's2' => 18,
+                'doktor' => 21,
+                's3' => 21,
+            ];
+            if (isset($eduMap[$edu])) {
+                $input['mother_education'] = $eduMap[$edu];
+            } elseif (is_numeric($input['mother_education'])) {
+                $input['mother_education'] = (float)$input['mother_education'];
+            }
+        }
+
+        // Normalisasi Boolean / Pil Besi & Sakit Hamil
+        if (isset($input['iron_pills'])) {
+            $val = $input['iron_pills'];
+            $input['iron_pills'] = ($val === true || $val === 1 || $val === '1' || $val === 'true' || strtolower((string)$val) === 'ya') ? 1 : 0;
+        }
+        if (isset($input['pregnancy_sickness'])) {
+            $val = $input['pregnancy_sickness'];
+            $input['pregnancy_sickness'] = ($val === true || $val === 1 || $val === '1' || $val === 'true' || strtolower((string)$val) === 'ya') ? 1 : 0;
+        }
+
+        $validator = Validator::make($input, [
             'mother_height' => 'required|numeric|min:100|max:250',
             'mother_weight' => 'required|numeric|min:30|max:200',
             'maternal_hemoglobin' => 'required|numeric|min:5|max:20',
@@ -105,6 +164,18 @@ class StuntingPredictionController extends Controller
             'anc_visits_total' => 'required|numeric|min:0|max:20',
             'iron_pills' => 'required|numeric|in:0,1',
             'pregnancy_sickness' => 'required|numeric|in:0,1',
+        ], [
+            'mother_height.required' => 'Tinggi ibu wajib diisi.',
+            'mother_weight.required' => 'Berat badan ibu wajib diisi.',
+            'maternal_hemoglobin.required' => 'Kadar hemoglobin ibu wajib diisi.',
+            'mother_age.required' => 'Usia ibu wajib diisi.',
+            'mother_education.required' => 'Pendidikan ibu wajib diisi.',
+            'mother_education.numeric' => 'Format pendidikan ibu tidak valid.',
+            'mother_education.min' => 'Pendidikan ibu minimal 0 tahun.',
+            'mother_education.max' => 'Pendidikan ibu maksimal 25 tahun.',
+            'anc_visits_total.required' => 'Total kunjungan ANC wajib diisi.',
+            'iron_pills.required' => 'Status konsumsi pil besi wajib diisi.',
+            'pregnancy_sickness.required' => 'Status sakit selama kehamilan wajib diisi.',
         ]);
 
         if ($validator->fails()) {
@@ -122,27 +193,7 @@ class StuntingPredictionController extends Controller
             $payload['iron_pills'] = (int) $payload['iron_pills'];
             $payload['pregnancy_sickness'] = (int) $payload['pregnancy_sickness'];
 
-            $healthScore = 0;
-            if ($payload['mother_height'] < 150) $healthScore += 2;
-            if ($payload['mother_weight'] < 50) $healthScore += 1;
-            if ($payload['maternal_hemoglobin'] < 11.0) $healthScore += 2;
-            if ($payload['anc_visits_total'] < 4) $healthScore += 1;
-            if ($payload['iron_pills'] == 0) $healthScore += 1;
-            if ($payload['pregnancy_sickness'] == 1) $healthScore += 1;
-
-            if ($healthScore >= 5) {
-                $payload['child_height'] = 50.0;
-            } else if ($healthScore >= 2) {
-                $payload['child_height'] = 61.0;
-            } else {
-                $payload['child_height'] = 64.5;
-            }
-
-            $payload['child_age_years'] = 0;
-            $payload['birth_weight'] = 3.2;
-            $payload['child_gender'] = 1;
-            $payload['birth_order'] = 1;
-
+            // Kirim payload murni data maternal ke ML service Fakhira (tanpa data anak dummy)
             $startTime = microtime(true);
             $response = Http::timeout(10)->post($this->mlApiUrl, $payload);
             $latencyMs = (int) round((microtime(true) - $startTime) * 1000);
@@ -152,37 +203,78 @@ class StuntingPredictionController extends Controller
                 
                 $riskLevel = $result['prediction_class'] ?? 0;
                 $score = $result['probability'] ?? 0.0;
-                $riskLabel = $riskLevel == 1 ? "Tinggi" : ($riskLevel == 2 ? "Sedang" : "Rendah");
+                $riskLabel = $result['stunting_risk'] ?? ($riskLevel == 1 ? "Tinggi" : "Rendah");
+                $explanation = $result['explanation'] ?? $result['message'] ?? '';
+                $recommendations = $result['recommendations'] ?? [];
+                $riskFactors = $result['risk_factors'] ?? [];
                 
-                $recommendationText = "Kondisi kehamilan Anda sehat. Pertahankan pola makan bergizi dan rutin periksa kehamilan (ANC).";
-                if ($riskLevel == 1) {
-                    $recommendationText = "Risiko stunting tinggi. Segera jadwalkan konsultasi dengan dokter kandungan Anda dan perhatikan asupan nutrisi.";
-                } elseif ($riskLevel == 2) {
-                    $recommendationText = "Risiko stunting sedang. Tingkatkan asupan makanan kaya protein hewani dan zat besi.";
+                // Susun teks rekomendasi holistik
+                if (!empty($recommendations)) {
+                    $recommendationText = implode(" ", $recommendations);
+                } else if (!empty($explanation)) {
+                    $recommendationText = $explanation;
+                } else {
+                    $recommendationText = $riskLevel == 1 
+                        ? "Risiko stunting tinggi. Segera jadwalkan konsultasi dengan dokter kandungan Anda dan perhatikan asupan nutrisi."
+                        : "Kondisi kehamilan Anda sehat. Pertahankan pola makan bergizi dan rutin periksa kehamilan (ANC).";
                 }
+
+                // Format SHAP / Top Factors untuk kompatibilitas UI Flutter & Web
+                $topFactors = [];
+                foreach ($riskFactors as $rf) {
+                    $topFactors[] = [
+                        'feature' => $rf,
+                        'impact'  => 'high',
+                        'value'   => 1.0,
+                        'message' => $rf,
+                    ];
+                }
+
+                $structuredExplanation = [
+                    'method'       => 'Clinical Risk Indicators (Kemenkes RI)',
+                    'summary'      => $explanation,
+                    'risk_factors' => $riskFactors,
+                    'top_factors'  => $topFactors,
+                ];
 
                 $predictionRecord = null;
                 if (Auth::check()) {
                     $predictionRecord = StuntingPrediction::create([
-                        'user_id' => Auth::id(),
-                        'input_data' => $payload,
-                        'ml_payload' => $payload,
-                        'ml_response' => $result,
-                        'probability' => $score,
-                        'prediction' => $riskLevel,
-                        'risk_label' => $riskLabel,
-                        'recommendations' => [$recommendationText],
-                        'latency_ms' => $latencyMs,
-                        'status' => StuntingPrediction::STATUS_SUCCESS,
+                        'user_id'         => Auth::id(),
+                        'input_data'      => $payload,
+                        'ml_payload'      => $payload,
+                        'ml_response'     => $result,
+                        'probability'     => $score,
+                        'prediction'      => $riskLevel,
+                        'risk_label'      => $riskLabel,
+                        'explanation'     => $structuredExplanation,
+                        'recommendations' => !empty($recommendations) ? $recommendations : [$recommendationText],
+                        'model_version'   => 'v2.1.0-fakhira-maternal',
+                        'latency_ms'      => $latencyMs,
+                        'status'          => StuntingPrediction::STATUS_SUCCESS,
                     ]);
+
+                    // Rekalkulasi Triase Klinis Maternal CDSS (Pilar ke-1 Risiko Stunting Maternal)
+                    try {
+                        $triageService = app(\App\Services\MaternalTriageService::class);
+                        $triageService->calculatePatientTriage(Auth::id());
+                    } catch (\Throwable $e) {
+                        Log::warning("Gagal memperbarui Maternal Triage Score pasca prediksi stunting: " . $e->getMessage());
+                    }
                 }
 
                 $outputData = [
-                    'score' => (float) $score,
-                    'riskLevel' => (int) $riskLevel,
-                    'riskLabel' => $riskLabel,
-                    'recommendation' => $recommendationText,
-                    'predictionId' => $predictionRecord ? $predictionRecord->id : 0,
+                    'score'                 => (float) $score,
+                    'probabilityPercentage' => round((float) $score * 100, 1),
+                    'riskLevel'             => (int) $riskLevel,
+                    'riskLabel'             => $riskLabel,
+                    'recommendation'        => $recommendationText,
+                    'recommendations'       => $recommendations,
+                    'riskFactors'           => $riskFactors,
+                    'explanation'           => $structuredExplanation,
+                    'bmi'                   => $result['bmi'] ?? null,
+                    'thresholdUsed'         => $result['threshold_used'] ?? null,
+                    'predictionId'          => $predictionRecord ? $predictionRecord->id : 0,
                 ];
 
                 return response()->json([
@@ -288,18 +380,25 @@ class StuntingPredictionController extends Controller
             ], 404);
         }
 
-        $recommendationText = !empty($prediction->recommendations) 
-            ? $prediction->recommendations[0] 
-            : "Tidak ada rekomendasi.";
+        $recommendationText = "Tidak ada rekomendasi.";
+        if (!empty($prediction->recommendations)) {
+            $recommendationText = is_array($prediction->recommendations) 
+                ? implode(" ", $prediction->recommendations) 
+                : (string) $prediction->recommendations;
+        }
 
         $outputData = [
-            'score' => (float) $prediction->probability,
-            'riskLevel' => (int) $prediction->prediction,
-            'riskLabel' => $prediction->risk_label,
-            'recommendation' => $recommendationText,
-            'predictionId' => $prediction->id,
-            'inputData' => $prediction->input_data,
-            'aiMealPlan' => $prediction->ai_meal_plan,
+            'score'                 => (float) $prediction->probability,
+            'probabilityPercentage' => round((float) $prediction->probability * 100, 1),
+            'riskLevel'             => (int) $prediction->prediction,
+            'riskLabel'             => $prediction->risk_label,
+            'recommendation'        => $recommendationText,
+            'recommendations'       => $prediction->recommendations ?? [],
+            'explanation'           => $prediction->explanation,
+            'riskFactors'           => $prediction->explanation['risk_factors'] ?? [],
+            'predictionId'          => $prediction->id,
+            'inputData'             => $prediction->input_data,
+            'aiMealPlan'            => $prediction->ai_meal_plan,
         ];
         
         // Tambahkan info user jika bidan mengakses

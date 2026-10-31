@@ -27,7 +27,7 @@ class ShopController extends Controller
 
     public function getAll(Request $request)
     {
-        AuthToken::assertRoleFresh($request, 'ibu_hamil');
+        AuthToken::assertRoleFresh($request, ['ibu_hamil', 'admin', 'bidan', 'dinkes']);
 
         $data = (int) $request->query('data', 30);
         $page = (int) $request->query('page', 1);
@@ -50,7 +50,11 @@ class ShopController extends Controller
             ->limit($data)
             ->get()
             ->map(function ($item) {
-                $item->photo = url(self::STORAGE_PREFIX . ltrim($item->photo, '/'));
+                if (!empty($item->photo)) {
+                    $item->photo = (str_starts_with($item->photo, 'http://') || str_starts_with($item->photo, 'https://'))
+                        ? $item->photo
+                        : url(self::STORAGE_PREFIX . ltrim($item->photo, '/'));
+                }
                 return $item;
             });
 
@@ -67,7 +71,7 @@ class ShopController extends Controller
 
     public function getByUser(Request $request)
     {
-        [$uid] = AuthToken::assertRoleFresh($request, 'ibu_hamil');
+        [$uid] = AuthToken::assertRoleFresh($request, ['ibu_hamil', 'admin']);
 
         $data = (int) $request->query('data', 30);
         $page = (int) $request->query('page', 1);
@@ -92,7 +96,11 @@ class ShopController extends Controller
             ->limit($data)
             ->get()
             ->map(function ($item) {
-                $item->photo = url(self::STORAGE_PREFIX . ltrim($item->photo, '/'));
+                if (!empty($item->photo)) {
+                    $item->photo = (str_starts_with($item->photo, 'http://') || str_starts_with($item->photo, 'https://'))
+                        ? $item->photo
+                        : url(self::STORAGE_PREFIX . ltrim($item->photo, '/'));
+                }
                 return $item;
             });
 
@@ -110,48 +118,64 @@ class ShopController extends Controller
 
     public function create(Request $request): JsonResponse
     {
-        [$uid] = AuthToken::assertRoleFresh($request, 'ibu_hamil');
+        [$uid, $role] = AuthToken::assertRoleFresh($request, ['ibu_hamil', 'admin']);
 
         $messages = [
             'photo.image' => self::MSG_PHOTO_INVALID,
             'photo.mimes' => self::MSG_PHOTO_INVALID,
-            'photo.max'   => 'Ukuran file melebihi batas upload, pastikan file dibawah 500KB',
+            'photo.max'   => 'Ukuran file melebihi batas upload, pastikan file dibawah 1MB',
             'url.url'     => 'Data URL belum benar, input dengan format lengkap',
         ];
 
         $v = Validator::make($request->all(), [
             'product_name' => ['required', 'string', 'max:255'],
             'price'        => ['required', 'string', 'max:50'],
+            'category'     => ['nullable', 'string', 'max:50'],
+            'description'  => ['nullable', 'string'],
             'url'          => ['required', 'url', 'max:2048'],
-            'photo'        => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:500'],
+            'photo'        => ['nullable'],
         ], $messages);
 
         if ($v->fails()) {
             return response()->json(['status' => 'error', 'errors' => $v->errors()], 422);
         }
 
-        $path = $request->file('photo')->store('shop', 'public');
+        $path = null;
+        if ($request->hasFile('photo')) {
+            $path = $request->file('photo')->store('shop', 'public');
+        } elseif ($request->filled('photo_url')) {
+            $path = $request->input('photo_url');
+        } elseif ($request->filled('photo') && is_string($request->input('photo'))) {
+            $path = $request->input('photo');
+        }
+
         $priceFormatted = $this->formatPrice($request->price);
 
         $product_id = DB::table('shop')->insertGetId([
-            'user_id'      => $uid,
-            'product_name' => $request->product_name,
-            'price'        => $priceFormatted,
-            'url'          => $request->url,
-            'photo'        => $path,
-            'created_at'   => now(),
-            'updated_at'   => now(),
+            'user_id'        => $uid,
+            'product_name'   => $request->product_name,
+            'category'       => $request->category ?? 'Lainnya',
+            'description'    => $request->description ?? null,
+            'price'          => $priceFormatted,
+            'url'            => $request->url,
+            'photo'          => $path ?? 'shop/default.png',
+            'average_rating' => 0,
+            'rating_count'   => 0,
+            'created_at'     => now(),
+            'updated_at'     => now(),
         ]);
 
-        $photoUrl = $path ? asset(self::STORAGE_PREFIX . $path) : null;
+        $photoUrl = $path ? (str_starts_with($path, 'http') ? $path : asset(self::STORAGE_PREFIX . $path)) : null;
 
         ShopLog::record('create', $uid, [
             'product_id'   => $product_id,
             'product_name' => $request->product_name,
+            'category'     => $request->category ?? 'Lainnya',
+            'description'  => $request->description ?? null,
             'price'        => $priceFormatted,
             'url'          => $request->url,
             'photo'        => $photoUrl,
-        ]);
+        ], $role === 'admin');
 
         return response()->json([
             'status'  => 'success',
@@ -159,6 +183,8 @@ class ShopController extends Controller
             'data'    => [
                 'product_id'   => $product_id,
                 'product_name' => $request->product_name,
+                'category'     => $request->category ?? 'Lainnya',
+                'description'  => $request->description ?? null,
                 'price'        => $priceFormatted,
                 'url'          => $request->url,
                 'photo'        => $photoUrl,
@@ -169,25 +195,32 @@ class ShopController extends Controller
 
     public function update(Request $request, int $id): JsonResponse
     {
-        [$uid] = AuthToken::assertRoleFresh($request, 'ibu_hamil');
+        [$uid, $role] = AuthToken::assertRoleFresh($request, ['ibu_hamil', 'admin']);
 
-        $row = DB::table('shop')->where('product_id', $id)->where('user_id', $uid)->first();
+        $query = DB::table('shop')->where('product_id', $id);
+        if ($role !== 'admin') {
+            $query->where('user_id', $uid);
+        }
+        $row = $query->first();
+
         if (! $row) {
-            return response()->json(['status'=>'error','message'=>'Produk tidak ditemukan atau bukan milik kamu.'], 404);
+            return response()->json(['status'=>'error','message'=>'Produk tidak ditemukan atau kamu tidak memiliki izin akses.'], 404);
         }
 
         $messages = [
             'photo.image' => self::MSG_PHOTO_INVALID,
             'photo.mimes' => self::MSG_PHOTO_INVALID,
-            'photo.max'   => 'Ukuran file melebihi batas upload, pastikan file dibawah 500KB',
+            'photo.max'   => 'Ukuran file melebihi batas upload, pastikan file dibawah 1MB',
             'url.url'     => 'Data URL belum benar, input dengan format lengkap',
         ];
 
         $v = Validator::make($request->all(), [
             'product_name' => ['sometimes', 'required', 'string', 'max:255'],
             'price'        => ['sometimes', 'required', 'string', 'max:50'],
+            'category'     => ['sometimes', 'nullable', 'string', 'max:50'],
+            'description'  => ['sometimes', 'nullable', 'string'],
             'url'          => ['sometimes', 'required', 'url', 'max:2048'],
-            'photo'        => ['sometimes', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:500'],
+            'photo'        => ['sometimes', 'nullable'],
         ], $messages);
 
         if ($v->fails()) {
@@ -197,6 +230,12 @@ class ShopController extends Controller
         $update = [];
         if ($request->has('product_name')) {
             $update['product_name'] = $request->product_name;
+        }
+        if ($request->has('category')) {
+            $update['category'] = $request->category;
+        }
+        if ($request->has('description')) {
+            $update['description'] = $request->description;
         }
         if ($request->has('price')) {
             $update['price'] = $this->formatPrice($request->price);
@@ -209,9 +248,11 @@ class ShopController extends Controller
             $newPath = $request->file('photo')->store('shop', 'public');
             $update['photo'] = $newPath;
 
-            if (!empty($row->photo) && Storage::disk('public')->exists($row->photo)) {
+            if (!empty($row->photo) && !str_starts_with($row->photo, 'http') && Storage::disk('public')->exists($row->photo)) {
                 Storage::disk('public')->delete($row->photo);
             }
+        } elseif ($request->filled('photo_url')) {
+            $update['photo'] = $request->input('photo_url');
         }
 
         $update['updated_at'] = now();
@@ -220,15 +261,15 @@ class ShopController extends Controller
 
         $merged = array_merge((array) $row, $update);
         $merged['photo'] = isset($update['photo'])
-            ? asset(self::STORAGE_PREFIX . $update['photo'])
-            : asset(self::STORAGE_PREFIX . $row->photo);
+            ? (str_starts_with($update['photo'], 'http') ? $update['photo'] : asset(self::STORAGE_PREFIX . $update['photo']))
+            : (str_starts_with($row->photo, 'http') ? $row->photo : asset(self::STORAGE_PREFIX . $row->photo));
 
-        ShopLog::record('update', $uid, $merged);
-
+        ShopLog::record('update', $uid, $merged, $role === 'admin');
 
         return response()->json([
             'status'  => 'success',
             'message' => 'Produk berhasil diperbarui.',
+            'data'    => $merged,
         ], 200);
     }
 

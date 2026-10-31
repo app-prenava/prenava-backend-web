@@ -101,7 +101,7 @@ class RecomendationSportController extends Controller
             ],
         ];
 
-        $mlUrl = rtrim(env('URL_ML_SPORTS', 'http://72.61.213.163:8080'), '/') . '/predict';
+        $mlUrl = $this->getMlSportsUrl('/predict');
 
         $resp = Http::withOptions(['timeout' => 15])
             ->retry(2, 500)
@@ -150,9 +150,14 @@ class RecomendationSportController extends Controller
         };
 
         // Enrich semua recommendation level
-        $recommendations = $ml['recommendations'] ?? [];
+        $rawRecommendations = $ml['recommendations'] ?? [];
+        $recommendations = [];
 
-        foreach ($recommendations as $level => $items) {
+        foreach ($rawRecommendations as $level => $items) {
+            if (!is_array($items)) {
+                continue;
+            }
+
             $recommendations[$level] = array_map($enrich, $items);
             
             // Acak urutan hanya untuk level tertentu
@@ -161,10 +166,22 @@ class RecomendationSportController extends Controller
             }
         }
 
-        // Enrich all jika ada
-        $allRanked = isset($ml['recommendations']['all'])
-            ? array_map($enrich, $ml['recommendations']['all'])
-            : [];
+        // Pastikan format kategori olahraga utama tetap konsisten
+        $cleanRecommendations = [
+            'highly_recommended'   => $recommendations['highly_recommended'] ?? [],
+            'allowed_with_caution' => $recommendations['allowed_with_caution'] ?? [],
+            'avoid'                => $recommendations['avoid'] ?? [],
+            'all'                  => $recommendations['all'] ?? [],
+        ];
+
+        // Format metadata keamanan medis
+        $safety = $ml['safety'] ?? [
+            'is_contraindicated' => (bool) ($rawRecommendations['is_contraindicated'] ?? false),
+            'safety_status'      => (string) ($rawRecommendations['safety_status'] ?? 'safe'),
+            'safety_alert'       => $rawRecommendations['safety_alert'] ?? null,
+            'trimester'          => (int) ($rawRecommendations['trimester'] ?? 1),
+            'contraindications'  => $rawRecommendations['contraindications'] ?? [],
+        ];
 
         // Log aktivitas
         $user = User::find($uid);
@@ -183,7 +200,8 @@ class RecomendationSportController extends Controller
             'message'         => 'Sport recommendation fetched.',
             'forward_payload' => $forward,
             'prediction'      => $ml['prediction'] ?? null,
-            'recommendations' => $recommendations,
+            'recommendations' => $cleanRecommendations,
+            'safety'          => $safety,
             'meta'            => $ml['meta'] ?? null,
         ]);
     }
@@ -204,6 +222,11 @@ class RecomendationSportController extends Controller
             'water_access'                  => ['required', 'boolean'],
             'back_pain'                     => ['required', 'boolean'],
             'placenta_position_restriction' => ['nullable', 'boolean'],
+            'vaginal_bleeding'              => ['nullable', 'boolean'],
+            'premature_contractions'        => ['nullable', 'boolean'],
+            'amniotic_fluid_leak'           => ['nullable', 'boolean'],
+            'severe_dizziness'              => ['nullable', 'boolean'],
+            'chest_pain_or_dyspnea'         => ['nullable', 'boolean'],
         ]);
 
         if ($v->fails()) {
@@ -301,13 +324,18 @@ class RecomendationSportController extends Controller
                 'low_impact_preference'         => (bool) $d['low_impact_pref'],
                 'water_access'                  => (bool) $d['water_access'],
                 'back_pain'                     => (bool) $d['back_pain'],
+                'vaginal_bleeding'              => (bool) ($d['vaginal_bleeding'] ?? false),
+                'premature_contractions'        => (bool) ($d['premature_contractions'] ?? false),
+                'amniotic_fluid_leak'           => (bool) ($d['amniotic_fluid_leak'] ?? false),
+                'severe_dizziness'              => (bool) ($d['severe_dizziness'] ?? false),
+                'chest_pain_or_dyspnea'         => (bool) ($d['chest_pain_or_dyspnea'] ?? false),
             ],
         ];
 
         $resp = Http::timeout(15)
             ->retry(2, 500)
             ->acceptJson()
-            ->post(rtrim(env('URL_ML_SPORTS', 'http://72.61.213.163:8080'), '/') . '/predict', $forward);
+            ->post($this->getMlSportsUrl('/predict'), $forward);
 
         if (! $resp->ok()) {
             return response()->json([
@@ -354,10 +382,32 @@ class RecomendationSportController extends Controller
             ]);
         };
 
-        $recommendations = $ml['recommendations'] ?? [];
-        foreach ($recommendations as $level => $items) {
+        $rawRecommendations = $ml['recommendations'] ?? [];
+        $recommendations = [];
+
+        foreach ($rawRecommendations as $level => $items) {
+            if (!is_array($items)) {
+                continue;
+            }
             $recommendations[$level] = array_map($enrich, $items);
         }
+
+        // Pastikan format kategori olahraga utama tetap konsisten
+        $cleanRecommendations = [
+            'highly_recommended'   => $recommendations['highly_recommended'] ?? [],
+            'allowed_with_caution' => $recommendations['allowed_with_caution'] ?? [],
+            'avoid'                => $recommendations['avoid'] ?? [],
+            'all'                  => $recommendations['all'] ?? [],
+        ];
+
+        // Format metadata keamanan medis
+        $safety = $ml['safety'] ?? [
+            'is_contraindicated' => (bool) ($rawRecommendations['is_contraindicated'] ?? false),
+            'safety_status'      => (string) ($rawRecommendations['safety_status'] ?? 'safe'),
+            'safety_alert'       => $rawRecommendations['safety_alert'] ?? null,
+            'trimester'          => (int) ($rawRecommendations['trimester'] ?? 1),
+            'contraindications'  => $rawRecommendations['contraindications'] ?? [],
+        ];
 
         // Log pengisian assessment rekomendasi gerakan
         $user = User::find($uid);
@@ -369,6 +419,14 @@ class RecomendationSportController extends Controller
                 ['gestational_age_weeks' => $gestationalAgeWeeks, 'bmi' => $d['bmi']],
                 $request
             );
+
+            // Rekalkulasi Triase Klinis Maternal CDSS (Pilar ke-3 Tensi & Komplikasi Obstetri)
+            try {
+                $triageService = app(\App\Services\MaternalTriageService::class);
+                $triageService->calculatePatientTriage($uid, $preg->pregnancy_id);
+            } catch (\Throwable $e) {
+                Log::warning("Gagal memperbarui Maternal Triage Score pasca asesmen gerak/tensi: " . $e->getMessage());
+            }
         }
 
         return response()->json([
@@ -376,7 +434,8 @@ class RecomendationSportController extends Controller
             'message'         => 'Sport recommendation created successfully.',
             'forward_payload' => $forward,
             'prediction'      => $ml['prediction'] ?? null,
-            'recommendations' => $recommendations,
+            'recommendations' => $cleanRecommendations,
+            'safety'          => $safety,
             'meta'            => $ml['meta'] ?? null,
         ], 200);
     }
@@ -825,27 +884,35 @@ public function syncMlRules(Request $request): JsonResponse
     ], 200);
 }
 
-private function triggerMlSync(): array 
-{
-    $url = rtrim(env('URL_ML_SPORTS', 'http://72.61.213.163:8080'), '/') . '/sync-rules';
-
-    try {
-        $resp = Http::timeout(10)->post($url);
-
-        if (! $resp->ok()) {
-            Log::error('Sync ke ml-service gagal.', [
-                'status' => $resp->status(),
-                'body'   => $resp->body(),
-            ]);
-
-            return ['success' => false, 'message' => $resp->json('detail') ?? ('HTTP ' . $resp->status())];
+    private function getMlSportsUrl(string $path = '/predict'): string
+    {
+        $rawUrl = config('services.ml.sports', env('URL_ML_SPORTS', 'http://72.61.213.163:8080'));
+        if (file_exists('/.dockerenv')) {
+            $rawUrl = str_replace(['127.0.0.1', 'localhost'], 'host.docker.internal', $rawUrl);
         }
-
-        return ['success' => true, 'message' => $resp->json('message') ?? 'Sync berhasil.'];
-    } catch (\Throwable $e) {
-        Log::error('Sync ke ml-service gagal (exception).', ['error' => $e->getMessage()]);
-        return ['success' => false, 'message' => $e->getMessage()];
+        return rtrim($rawUrl, '/') . '/' . ltrim($path, '/');
     }
-}
 
+    private function triggerMlSync(): array 
+    {
+        $url = $this->getMlSportsUrl('/sync-rules');
+
+        try {
+            $resp = Http::timeout(10)->post($url);
+
+            if (! $resp->ok()) {
+                Log::error('Sync ke ml-service gagal.', [
+                    'status' => $resp->status(),
+                    'body'   => $resp->body(),
+                ]);
+
+                return ['success' => false, 'message' => $resp->json('detail') ?? ('HTTP ' . $resp->status())];
+            }
+
+            return ['success' => true, 'message' => $resp->json('message') ?? 'Sync berhasil.'];
+        } catch (\Throwable $e) {
+            Log::error('Sync ke ml-service gagal (exception).', ['error' => $e->getMessage()]);
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
 }

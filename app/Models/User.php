@@ -247,4 +247,52 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->hasMany(DeteksiPenyakit::class, 'user_id', 'user_id');
     }
+
+    /**
+     * Get pregnancies registered by user
+     */
+    public function pregnancies(): HasMany
+    {
+        return $this->hasMany(Pregnancy::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Get all CDSS triage scores for user
+     */
+    public function maternalTriageScores(): HasMany
+    {
+        return $this->hasMany(MaternalTriageScore::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Get latest CDSS triage score for user
+     */
+    public function latestMaternalTriageScore()
+    {
+        return $this->hasOne(MaternalTriageScore::class, 'user_id', 'user_id')->latestOfMany('calculated_at');
+    }
+
+    /**
+     * Get user incentive wallet
+     */
+    public function wallet(): HasOne
+    {
+        return $this->hasOne(Wallet::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Get user streak status
+     */
+    public function streak(): HasOne
+    {
+        return $this->hasOne(UserStreak::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Get user task logs
+     */
+    public function taskLogs(): HasMany
+    {
+        return $this->hasMany(UserTaskLog::class, 'user_id', 'user_id');
+    }
 }

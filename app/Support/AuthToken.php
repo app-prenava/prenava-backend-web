@@ -52,8 +52,6 @@ final class AuthToken
             return $request->attributes->get('auth.claims');
         }
 
-        JWTAuth::parseToken()->getToken();
-
         $p    = self::payloadOrFail($request);
         $uid  = (int) $p->get('uid');
         $role = strtolower((string) $p->get('role'));

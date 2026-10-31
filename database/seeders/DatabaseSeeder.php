@@ -17,10 +17,11 @@ class DatabaseSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'admin@prenava.com'],
             [
-                'name'      => 'Admin Prenava',
-                'password'  => Hash::make('password123'),
-                'role'      => 'admin',
-                'is_active' => true,
+                'name'              => 'Admin Prenava',
+                'password'          => Hash::make('password123'),
+                'role'              => 'admin',
+                'is_active'         => true,
+                'email_verified_at' => $now,
             ]
         );
 
@@ -28,10 +29,11 @@ class DatabaseSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'dinkes@prenava.com'],
             [
-                'name'      => 'Admin Dinkes',
-                'password'  => Hash::make('password123'),
-                'role'      => 'dinkes',
-                'is_active' => true,
+                'name'              => 'Admin Dinkes',
+                'password'          => Hash::make('password123'),
+                'role'              => 'dinkes',
+                'is_active'         => true,
+                'email_verified_at' => $now,
             ]
         );
 
@@ -52,10 +54,11 @@ class DatabaseSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'hamil@prenava.com'],
             [
-                'name'      => 'User Hamil',
-                'password'  => Hash::make('password123'),
-                'role'      => 'ibu_hamil',
-                'is_active' => true,
+                'name'              => 'User Hamil',
+                'password'          => Hash::make('password123'),
+                'role'              => 'ibu_hamil',
+                'is_active'         => true,
+                'email_verified_at' => $now,
             ]
         );
 
@@ -81,10 +84,11 @@ class DatabaseSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'bidan.rita@prenava.com'],
             [
-                'name'      => 'Bidan Rita',
-                'password'  => Hash::make('password123'),
-                'role'      => 'bidan',
-                'is_active' => true,
+                'name'              => 'Bidan Rita',
+                'password'          => Hash::make('password123'),
+                'role'              => 'bidan',
+                'is_active'         => true,
+                'email_verified_at' => $now,
             ]
         );
 
@@ -107,18 +111,22 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             IconSeeder::class,
-            KomunitasSeeder::class,
             PostpartumArticlesSeeder::class,
-            SaranMakananSeeder::class,
-            ProductSeeder::class,
             IbuHamilSeeder::class,
-            KomunitasPostSeeder::class,
             CatatanKunjunganSeeder::class,
-            ShopSeeder::class,
-            ShopReviewSeeder::class,
-            KomunitasLikeSeeder::class,
             PregnancyTipsSeeder::class,
             SubscriptionPlanSeeder::class,
+            BannerSeeder::class,
+            CatatanIbuSeeder::class,
+            DailyTaskSeeder::class,
+            DataMlSportSeeder::class,
+            LocalWisdomSeeder::class,
+            ParameterizedSeeder::class,
+            AnalyticsDummySeeder::class,
+            ShopSeeder::class,
+            ShopReviewSeeder::class,
+            KomunitasPostSeeder::class,
+            KomunitasLikeSeeder::class,
         ]);
     }
 }

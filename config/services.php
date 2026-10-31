@@ -42,12 +42,15 @@ return [
     ],
 
     'ml' => [
-        'sports' => env('URL_ML_SPORTS'),
-        'depression' => env('URL_ML_DEPRESSION'),
-        'anemia' => env('URL_ML_ANEMIA'),
-        'stunting' => env('URL_ML_STUNTING', 'http://127.0.0.1:2727'),
+        'sports' => (file_exists('/.dockerenv') && env('URL_ML_SPORTS') ? str_replace(['127.0.0.1', 'localhost'], 'host.docker.internal', (string) env('URL_ML_SPORTS')) : env('URL_ML_SPORTS')),
+        'depression' => (file_exists('/.dockerenv') && env('URL_ML_DEPRESSION') ? str_replace(['127.0.0.1', 'localhost'], 'host.docker.internal', (string) env('URL_ML_DEPRESSION')) : env('URL_ML_DEPRESSION')),
+        'anemia' => (file_exists('/.dockerenv') && env('URL_ML_ANEMIA') ? str_replace(['127.0.0.1', 'localhost'], 'host.docker.internal', (string) env('URL_ML_ANEMIA')) : env('URL_ML_ANEMIA')),
+        'stunting' => (file_exists('/.dockerenv') ? str_replace(['127.0.0.1', 'localhost'], 'host.docker.internal', (string) env('URL_ML_STUNTING', 'http://127.0.0.1:5000')) : env('URL_ML_STUNTING', 'http://127.0.0.1:5000')),
+        'stunting_predict' => (file_exists('/.dockerenv') ? str_replace(['127.0.0.1', 'localhost'], 'host.docker.internal', (string) env('ML_API_URL', 'http://127.0.0.1:5000/predict')) : env('ML_API_URL', 'http://127.0.0.1:5000/predict')),
         'stunting_timeout' => env('ML_STUNTING_TIMEOUT', 90),
         'stunting_connect_timeout' => env('ML_STUNTING_CONNECT_TIMEOUT', 10),
+        'rag' => (file_exists('/.dockerenv') ? str_replace(['127.0.0.1', 'localhost'], 'host.docker.internal', (string) env('URL_ML_RAG', 'http://127.0.0.1:8002')) : env('URL_ML_RAG', 'http://127.0.0.1:8002')),
+        'food' => (file_exists('/.dockerenv') ? str_replace(['127.0.0.1', 'localhost'], 'host.docker.internal', (string) env('URL_ML_FOOD', 'http://127.0.0.1:9002')) : env('URL_ML_FOOD', 'http://127.0.0.1:9002')),
     ],
 
     'gemini' => [

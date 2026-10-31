@@ -44,8 +44,6 @@ This is the backend API for Nuri, leveraging Laravel’s robust framework, Frank
 3. **Database Initialization**:
    ```bash
    docker exec -it nuri-backend-app php artisan migrate --seed
-   # Specifically for Food Recommendation Module:
-   docker exec -it nuri-backend-app php artisan db:seed --class=FoodSeeder
    ```
 
 4. **Testing**:

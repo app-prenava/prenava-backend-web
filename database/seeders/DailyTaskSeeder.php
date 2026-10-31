@@ -32,6 +32,13 @@ class DailyTaskSeeder extends Seeder
                 'points'          => 20,
                 'target_category' => null,
             ],
+            [
+                'title'           => 'Verifikasi Piring Gizi Seimbang (Isi Piringku)',
+                'description'     => 'Foto piring makan harianmu dan pastikan porsi gizi seimbang (min. 70%).',
+                'task_type'       => 'food_compliance',
+                'points'          => 50,
+                'target_category' => 'ibu_hamil',
+            ],
 
             // ── Auto-tracked: Feature Usage (Misi Fitur App) ──────────────
             [

@@ -9,13 +9,7 @@ class FoodSeeder extends Seeder
 {
     public function run(): void
     {
-        $stats = NutritionImportService::importFromCsv();
-
-        $this->command->info("Foods imported: {$stats['imported']}");
-        $this->command->info("Foods skipped (duplicates/zero): {$stats['skipped']}");
-
-        if ($stats['errors'] > 0) {
-            $this->command->warn("Errors: {$stats['errors']}");
-        }
+        $this->command->warn('FoodSeeder is deprecated: The static foods table was removed in migration drop_unused_food_and_meal_plan_tables.');
+        $this->command->info('Meal planning has been refactored to use dynamic AI generation (Gemini/Groq API).');
     }
 }

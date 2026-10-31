@@ -38,6 +38,7 @@ use App\Http\Controllers\CatatanIbuController;
 use App\Http\Controllers\HistoryLogController;
 use App\Http\Controllers\DailyFeatureController;
 use App\Http\Controllers\LocalWisdomController;
+use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\MealPlanController;
 use App\Http\Controllers\StuntingPredictionController;
 use App\Http\Controllers\FoodRecommendationController;
@@ -49,6 +50,8 @@ use App\Http\Controllers\ShowDataUserDashboard;
 use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\AdminBidanController;
 use App\Http\Controllers\BidanDashboardController;
+use App\Http\Controllers\BidanTriageController;
+use App\Http\Controllers\VoiceRagController;
 use App\Http\Controllers\UserBidanController;
 use App\Http\Controllers\InsentifController;
 
@@ -148,6 +151,7 @@ Route::middleware('auth:api')->group(function () {
     Route::delete('/health/history/{id}', [HealthHistoryController::class, 'destroy']);
 });
 
+Route::get('/admin/dashboard-stats', [AdminDashboardController::class, 'getStats']);
 Route::post('/admin/users/{userId}/deactivate', [AdminUserStatusController::class, 'deactivate']);
 Route::post('/admin/users/{userId}/activate',   [AdminUserStatusController::class, 'activate']);
 
@@ -301,7 +305,7 @@ Route::group(['middleware' => 'auth:api'], function () {
     // Depression Face Scan
     Route::post('/depression-scan', [DepressionScanController::class, 'scan']);
 
-    // Anemia Eye Scan
+    // Anemia Eye Scan (Synchronous V1)
     Route::post('/anemia-scan', [App\Http\Controllers\AnemiaScanController::class, 'scan']);
 
     // Stunting Prediction & Foods
@@ -309,8 +313,28 @@ Route::group(['middleware' => 'auth:api'], function () {
     Route::post('/stunting/predict', [StuntingPredictionController::class, 'predict']);
     Route::get('/stunting/history', [StuntingPredictionController::class, 'history']);
     Route::get('/stunting/history/{id}', [StuntingPredictionController::class, 'historyDetail']);
+
+    // Food Plate Scanner & Nutrition Compliance ("Isi Piringku" - Individu 3)
+    Route::post('/food-scan', [App\Http\Controllers\FoodScanController::class, 'scan']);
+    Route::get('/food-scan/history', [App\Http\Controllers\FoodScanController::class, 'history']);
+    Route::get('/food-scan/history/{id}', [App\Http\Controllers\FoodScanController::class, 'show']);
 });
 
+// Endpoint Gateway V1 Food Scanner (Dapat diakses oleh Mobile PWA & CDSS Bidan)
+Route::prefix('v1/food-scanner')->group(function () {
+    Route::post('/analyze', [App\Http\Controllers\FoodScanController::class, 'scan']);
+    Route::get('/history', [App\Http\Controllers\FoodScanController::class, 'history']);
+    Route::get('/history/{id}', [App\Http\Controllers\FoodScanController::class, 'show']);
+});
+
+
+// ============================================
+// V2 ASYNCHRONOUS AI GATEWAY (REDIS QUEUE)
+// ============================================
+Route::prefix('v2')->group(function () {
+    Route::post('/anemia-scan/async', [App\Http\Controllers\AnemiaScanController::class, 'scanAsync']);
+    Route::get('/jobs/{jobId}/status', [App\Http\Controllers\AnemiaScanController::class, 'checkJobStatus']);
+});
 
 // Welcome
 Route::get('/', function () {
@@ -376,6 +400,11 @@ Route::prefix('bidan')->middleware(['auth:api'])->group(function () {
     Route::patch('/appointments/{id}/reject', [BidanDashboardController::class, 'rejectAppointment']);
     Route::patch('/appointments/{id}/complete', [BidanDashboardController::class, 'completeAppointment']);
     Route::patch('/appointments/{id}/reschedule', [BidanDashboardController::class, 'rescheduleAppointment']);
+
+    // CDSS Clinical Decision Support System (Triase Antrean Pasien)
+    Route::get('/patients/triage', [BidanTriageController::class, 'getTriageQueue']);
+    Route::get('/patients/{userId}/triage-detail', [BidanTriageController::class, 'getPatientDetail']);
+    Route::post('/patients/{userId}/recalculate-triage', [BidanTriageController::class, 'recalculate']);
 });
 
 // User (Mobile) Routes for Bidan Discovery & Appointments (Protected: role=ibu_hamil)
@@ -403,10 +432,15 @@ Route::prefix('user')->middleware(['auth:api'])->group(function () {
     // Consultation Types
     Route::get('/consultation-types', [UserBidanController::class, 'getConsultationTypes']);
 
-    // Daily Features
+    // CDSS Maternal Triage & Health Completeness (Mobile Patient Self-Monitoring)
+    Route::get('/maternal-triage', [BidanTriageController::class, 'getMyTriage']);
+
+    // Daily Features & Smart Incentive Hub
     Route::put('/category', [DailyFeatureController::class, 'updateCategory']);
     Route::get('/daily-progress', [DailyFeatureController::class, 'getProgress']);
     Route::post('/daily-task/complete', [DailyFeatureController::class, 'completeTask']);
+    Route::post('/daily-task/verify-food', [DailyFeatureController::class, 'verifyFoodPlate']);
+    Route::get('/wallet/summary', [DailyFeatureController::class, 'getWalletSummary']);
     // Auto-track feature access (called on navigation)
     Route::post('/feature-track', [DailyFeatureController::class, 'trackFeature']);
     // Analytics for Tugas Akhir research
@@ -420,3 +454,14 @@ Route::prefix('user')->middleware(['auth:api'])->group(function () {
     // Meal Plan (AI Generated)
     Route::post('/meal-plan/generate', [MealPlanController::class, 'generateMealPlan']);
 });
+
+// ==========================================
+// VOICE-ENABLED MEDICAL RAG (BUKU KIA KEMENKES RI - INDIVIDU 2)
+// ==========================================
+Route::prefix('v1/maternal-rag')->group(function () {
+    Route::post('/ask-voice', [VoiceRagController::class, 'askVoice']);
+    Route::post('/ask-text', [VoiceRagController::class, 'askText']);
+    Route::get('/history', [VoiceRagController::class, 'getHistory']);
+    Route::get('/danger-catalog', [VoiceRagController::class, 'getDangerCatalog']);
+});
+

@@ -44,6 +44,7 @@ class ActivityLog extends Model
     const TYPE_DETEKSI_ANEMIA     = 'deteksi_anemia';
     const TYPE_REKOMENDASI_MAKANAN = 'rekomendasi_makanan';
     const TYPE_REKOMENDASI_GERAKAN = 'rekomendasi_gerakan';
+    const TYPE_SCAN_PIRING_GIZI    = 'scan_piring_gizi';
 
     /**
      * Labels for each activity type (Bahasa Indonesia)
@@ -60,6 +61,7 @@ class ActivityLog extends Model
         self::TYPE_DETEKSI_ANEMIA     => 'Deteksi Anemia',
         self::TYPE_REKOMENDASI_MAKANAN => 'Rekomendasi Makanan',
         self::TYPE_REKOMENDASI_GERAKAN => 'Rekomendasi Gerakan',
+        self::TYPE_SCAN_PIRING_GIZI    => 'Scan Piring Gizi',
     ];
 
     /**

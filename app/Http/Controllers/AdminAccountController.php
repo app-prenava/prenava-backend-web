@@ -11,6 +11,7 @@ use Tymon\JWTAuth\Facades\JWTAuth;
 use Tymon\JWTAuth\Exceptions\TokenExpiredException;
 use Tymon\JWTAuth\Exceptions\TokenInvalidException;
 use Tymon\JWTAuth\Exceptions\JWTException;
+use Illuminate\Support\Facades\Schema;
 use App\Support\AuthToken;
 
 class AdminAccountController extends Controller
@@ -293,23 +294,46 @@ class AdminAccountController extends Controller
         $userIds = $query->pluck('users.user_id')->toArray();
 
         // Ambil data history secara bulk (untuk menghindari N+1 query problem)
-        $anemiaHistory = DB::table('deteksi_penyakit')
-            ->whereIn('user_id', $userIds)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->groupBy('user_id');
+        $anemiaHistory = collect();
+        if (Schema::hasTable('health_scan_histories')) {
+            $anemiaHistory = DB::table('health_scan_histories')
+                ->where('type', 'anemia')
+                ->whereIn('user_id', $userIds)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->groupBy('user_id');
+        } elseif (Schema::hasTable('deteksipenyakit')) {
+            $anemiaHistory = DB::table('deteksipenyakit')
+                ->whereIn('user_id', $userIds)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->groupBy('user_id');
+        }
 
-        $depressionHistory = DB::table('prediksi_depresi')
-            ->whereIn('user_id', $userIds)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->groupBy('user_id');
+        $depressionHistory = collect();
+        if (Schema::hasTable('health_scan_histories')) {
+            $depressionHistory = DB::table('health_scan_histories')
+                ->where('type', 'depression')
+                ->whereIn('user_id', $userIds)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->groupBy('user_id');
+        } elseif (Schema::hasTable('prediksi_depresi')) {
+            $depressionHistory = DB::table('prediksi_depresi')
+                ->whereIn('user_id', $userIds)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->groupBy('user_id');
+        }
             
-        $stuntingHistory = DB::table('stunting_predictions')
-            ->whereIn('user_id', $userIds)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->groupBy('user_id');
+        $stuntingHistory = collect();
+        if (Schema::hasTable('stunting_predictions')) {
+            $stuntingHistory = DB::table('stunting_predictions')
+                ->whereIn('user_id', $userIds)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->groupBy('user_id');
+        }
 
         $ibuHamil = $query->get()->map(function ($row) use ($anemiaHistory, $depressionHistory, $stuntingHistory) {
             $row->photo_url = \App\Helpers\PhotoHelper::transformPhotoUrl($row->photo, 'public');

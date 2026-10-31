@@ -5,11 +5,19 @@ namespace App\Http\Controllers;
 use App\Models\DailyTask;
 use App\Models\UserTaskLog;
 use App\Models\UserStreak;
+use App\Services\IncentiveService;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
 class DailyFeatureController extends Controller
 {
+    protected IncentiveService $incentiveService;
+
+    public function __construct(IncentiveService $incentiveService)
+    {
+        $this->incentiveService = $incentiveService;
+    }
+
     public function updateCategory(Request $request)
     {
         $request->validate(['category' => 'required|string']);
@@ -50,15 +58,16 @@ class DailyFeatureController extends Controller
             'is_auto'      => str_starts_with($task->task_type, 'feature_'),
         ]);
 
-        $streak = UserStreak::firstOrCreate(
-            ['user_id' => $user->user_id],
-            ['current_streak' => 0, 'longest_streak' => 0]
-        );
+        $streak = $this->incentiveService->getOrCreateStreak($user);
+        $wallet = $this->incentiveService->getOrCreateWallet($user);
 
         return response()->json([
             'tasks'          => $formattedTasks,
             'streak'         => $streak->current_streak,
             'longest_streak' => $streak->longest_streak,
+            'wallet_dinkes'  => (float) $wallet->wallet_dinkes,
+            'wallet_ad'      => (float) $wallet->wallet_ad,
+            'total_balance'  => (float) ($wallet->wallet_dinkes + $wallet->wallet_ad),
         ]);
     }
 
@@ -68,7 +77,7 @@ class DailyFeatureController extends Controller
             'daily_task_id' => 'required|exists:daily_tasks,id',
         ]);
 
-        return $this->logTaskCompletion(auth()->user(), $request->daily_task_id);
+        return $this->logTaskCompletion(auth()->user(), (int) $request->daily_task_id);
     }
 
     /**
@@ -93,9 +102,45 @@ class DailyFeatureController extends Controller
     }
 
     /**
+     * Verifikasi Piring Gizi Seimbang (Isi Piringku Kemenkes)
+     * POST /api/user/daily-task/verify-food
+     */
+    public function verifyFoodPlate(Request $request)
+    {
+        $request->validate([
+            'compliance_score' => 'required|numeric|min:0|max:1',
+            'photo_url'        => 'nullable|string',
+            'food_items'       => 'nullable|array',
+        ]);
+
+        $user = auth()->user();
+        $result = $this->incentiveService->verifyAndRewardFood(
+            $user,
+            (float) $request->compliance_score,
+            $request->photo_url,
+            $request->food_items ?? []
+        );
+
+        return response()->json($result);
+    }
+
+    /**
+     * Wallet & Streak Summary for Mobile User
+     * GET /api/user/wallet/summary
+     */
+    public function getWalletSummary(Request $request)
+    {
+        $user = auth()->user();
+        $summary = $this->incentiveService->getWalletSummary($user);
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $summary,
+        ]);
+    }
+
+    /**
      * Analytics: feature usage summary (for Tugas Akhir research).
-     * Returns how many times each feature was accessed across all users,
-     * grouped by task_type and date range.
      */
     public function featureAnalytics(Request $request)
     {
@@ -121,8 +166,7 @@ class DailyFeatureController extends Controller
 
     private function logTaskCompletion($user, int $taskId)
     {
-        $today     = Carbon::today()->toDateString();
-        $yesterday = Carbon::yesterday()->toDateString();
+        $today = Carbon::today()->toDateString();
 
         $existing = UserTaskLog::where('user_id', $user->user_id)
             ->where('daily_task_id', $taskId)
@@ -130,37 +174,31 @@ class DailyFeatureController extends Controller
             ->first();
 
         if ($existing) {
-            return response()->json(['message' => 'Already tracked today', 'tracked' => false]);
+            return response()->json([
+                'message' => 'Already tracked today',
+                'tracked' => false,
+            ]);
         }
 
-        UserTaskLog::create([
-            'user_id'        => $user->user_id,
-            'daily_task_id'  => $taskId,
-            'completed_date' => $today,
-        ]);
+        $task = DailyTask::find($taskId);
+        $points = $task?->points ?? 10;
+        $title = $task?->title ?? 'Tugas Harian';
 
-        $streak = UserStreak::firstOrCreate(
-            ['user_id' => $user->user_id],
-            ['current_streak' => 0, 'longest_streak' => 0]
+        // Award points and advance streak atomically via IncentiveService
+        $awardResult = $this->incentiveService->awardPoints(
+            $user,
+            (float) $points,
+            'dinkes',
+            'Penyelesaian Tugas: ' . $title,
+            $taskId
         );
 
-        if ($streak->last_activity_date !== $today) {
-            $streak->current_streak = ($streak->last_activity_date === $yesterday)
-                ? $streak->current_streak + 1
-                : 1;
-
-            if ($streak->current_streak > $streak->longest_streak) {
-                $streak->longest_streak = $streak->current_streak;
-            }
-
-            $streak->last_activity_date = $today;
-            $streak->save();
-        }
-
         return response()->json([
-            'message'       => 'Tracked successfully',
-            'tracked'       => true,
-            'points_awarded' => DailyTask::find($taskId)?->points ?? 0,
+            'message'        => 'Tracked successfully',
+            'tracked'        => true,
+            'points_awarded' => $points,
+            'current_streak' => $awardResult['current_streak'],
+            'balance_dinkes' => $awardResult['balance_dinkes'],
         ]);
     }
 }
