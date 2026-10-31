@@ -40,6 +40,7 @@ class GoogleAuthController extends Controller
         $email    = $googleUser['email'];
         $googleId = $googleUser['sub'];
         $name     = $googleUser['name'] ?? explode('@', $email)[0];
+        $picture  = $googleUser['picture'] ?? null;
 
         // Find existing user by google_id or email
         $user = User::where('google_id', $googleId)->first()
@@ -61,6 +62,16 @@ class GoogleAuthController extends Controller
                     'message' => 'Akun dinonaktifkan. Hubungi admin.',
                 ], 403);
             }
+
+            // Auto-enrich user profile photo from Google if user has none
+            if ($picture && $user->role === 'ibu_hamil') {
+                $profile = $user->userProfile;
+                if ($profile && empty($profile->photo)) {
+                    $profile->update(['photo' => $picture]);
+                } elseif (!$profile) {
+                    $user->userProfile()->create(['photo' => $picture]);
+                }
+            }
         } else {
             // Create new user — Google users are auto-verified
             $user = User::create([
@@ -73,6 +84,13 @@ class GoogleAuthController extends Controller
                 'auth_provider'     => 'google',
                 'email_verified_at' => now(),
             ]);
+
+            // Save Google profile picture to profile
+            if ($picture) {
+                $user->userProfile()->create([
+                    'photo' => $picture,
+                ]);
+            }
 
             ActivityLogService::logFromUser(
                 ActivityLog::TYPE_REGISTER,
@@ -100,6 +118,7 @@ class GoogleAuthController extends Controller
                 'name'    => $user->name,
                 'email'   => $user->email,
                 'role'    => $user->role,
+                'photo'   => $user->userProfile?->photo ?? $picture,
             ],
             'authorization' => [
                 'token'      => $token,
@@ -125,9 +144,15 @@ class GoogleAuthController extends Controller
 
             $data = $response->json();
 
-            // Verify audience matches our client ID
-            $validClientId = config('services.google.android_client_id');
-            if ($validClientId && ($data['aud'] ?? '') !== $validClientId) {
+            // Verify audience matches any of our allowed client IDs (web, android, ios)
+            $allowedClientIds = config('services.google.allowed_client_ids', []);
+            $singleClientId = config('services.google.client_id', config('services.google.android_client_id'));
+            if (!empty($allowedClientIds)) {
+                $aud = $data['aud'] ?? '';
+                if (!in_array($aud, $allowedClientIds, true)) {
+                    return null;
+                }
+            } elseif ($singleClientId && ($data['aud'] ?? '') !== $singleClientId) {
                 return null;
             }
 

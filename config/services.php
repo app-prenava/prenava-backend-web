@@ -60,7 +60,15 @@ return [
     ],
 
     'google' => [
-        'android_client_id' => env('GOOGLE_ANDROID_CLIENT_ID'),
+        'client_id'          => env('GOOGLE_CLIENT_ID'),
+        'web_client_id'      => env('GOOGLE_CLIENT_ID'),
+        'android_client_id'  => env('GOOGLE_ANDROID_CLIENT_ID'),
+        'ios_client_id'      => env('GOOGLE_IOS_CLIENT_ID'),
+        'allowed_client_ids' => array_values(array_filter([
+            env('GOOGLE_CLIENT_ID'),
+            env('GOOGLE_ANDROID_CLIENT_ID'),
+            env('GOOGLE_IOS_CLIENT_ID'),
+        ])),
     ],
 
     'firecrawl' => [
