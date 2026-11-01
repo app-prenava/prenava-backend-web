@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class KomentarKomunitas extends Model
 {
@@ -15,16 +16,33 @@ class KomentarKomunitas extends Model
         'post_id',
         'user_id',
         'komentar',
+        'is_bidan_reply',
+        'is_pinned',
+        'suggest_appointment',
+        'bidan_user_id',
     ];
 
-    public function komunitas()
+    protected $casts = [
+        'is_bidan_reply'      => 'boolean',
+        'is_pinned'           => 'boolean',
+        'suggest_appointment' => 'boolean',
+        'bidan_user_id'       => 'integer',
+        'created_at'          => 'datetime',
+        'updated_at'          => 'datetime',
+    ];
+
+    public function komunitas(): BelongsTo
     {
-        return $this->belongsTo(Komunitas::class, 'post_id');
+        return $this->belongsTo(Komunitas::class, 'post_id', 'post_id');
     }
 
-    public function user()
+    public function user(): BelongsTo
     {
-        // User model menggunakan primary key user_id, jadi kita sesuaikan owner key-nya
         return $this->belongsTo(User::class, 'user_id', 'user_id');
+    }
+
+    public function bidan(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'bidan_user_id', 'user_id');
     }
 }

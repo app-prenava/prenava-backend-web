@@ -544,20 +544,20 @@ class IncentiveService
         $currentGlasses = $waterIntake?->glass_count ?? 0;
         $isHydrationComplete = $currentGlasses >= 8;
 
-        // Route mapping untuk action buttons di mobile
+        // Route mapping untuk action buttons di mobile (sesuai app_router.dart)
         $routeMap = [
-            'hydration'              => '/hydration-tracker',
-            'supplement'             => null, // checklist langsung di beranda
-            'exercise'               => null,
+            'hydration'              => '/hydration',
+            'supplement'             => null, // checklist interaktif di beranda
+            'exercise'               => '/rekomendasi-gerakan',
             'food_compliance'        => '/food-scanner',
-            'feature_anemia'         => '/anemia-detection',
-            'feature_depresi'        => '/depression-detection',
-            'feature_olahraga'       => '/sport-recommendation',
-            'feature_komunitas'      => '/community',
+            'feature_anemia'         => '/deteksi-anemia',
+            'feature_depresi'        => '/deteksi-depresi',
+            'feature_olahraga'       => '/rekomendasi-gerakan',
+            'feature_komunitas'      => '/community/create',
             'feature_kalkulator_hpl' => '/pregnancy-calculator',
             'feature_tips'           => '/tips',
-            'feature_udara'          => '/air-quality',
-            'feature_local_wisdom'   => '/local-wisdom',
+            'feature_udara'          => '/stunting/screening',
+            'feature_local_wisdom'   => '/tips',
         ];
 
         $formattedTasks = $tasks->map(function ($task) use ($completedTaskIds, $isHydrationComplete, $routeMap) {

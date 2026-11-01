@@ -45,6 +45,8 @@ use App\Http\Controllers\StuntingPredictionController;
 use App\Http\Controllers\FoodRecommendationController;
 use App\Http\Controllers\UserFoodPreferenceController;
 use App\Http\Controllers\ShowDataUserDashboard;
+use App\Http\Controllers\BidanForumController;
+use App\Http\Controllers\NotificationController;
 
 
 // Bidan Subscription Controllers
@@ -150,6 +152,11 @@ Route::prefix('recomendation/sport')->group(function () {
 Route::middleware('auth:api')->group(function () {
     Route::get('/health/history', [HealthHistoryController::class, 'index']);
     Route::delete('/health/history/{id}', [HealthHistoryController::class, 'destroy']);
+    
+    // In-App Notifications (Ibu Hamil & Bidan)
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 });
 
 Route::get('/admin/dashboard-stats', [AdminDashboardController::class, 'getStats']);
@@ -406,6 +413,11 @@ Route::prefix('bidan')->middleware(['auth:api'])->group(function () {
     Route::get('/patients/triage', [BidanTriageController::class, 'getTriageQueue']);
     Route::get('/patients/{userId}/triage-detail', [BidanTriageController::class, 'getPatientDetail']);
     Route::post('/patients/{userId}/recalculate-triage', [BidanTriageController::class, 'recalculate']);
+
+    // Forum Pasien & Validasi Klinis Bidan
+    Route::get('/forum/threads', [BidanForumController::class, 'index']);
+    Route::get('/forum/threads/{postId}', [BidanForumController::class, 'show']);
+    Route::post('/forum/threads/{postId}/reply', [BidanForumController::class, 'reply']);
 });
 
 // User (Mobile) Routes for Bidan Discovery & Appointments (Protected: role=ibu_hamil)

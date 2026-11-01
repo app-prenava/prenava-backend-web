@@ -15,21 +15,17 @@ class GamificationAndDailyTasksTest extends TestCase
 {
     protected function getTestUser(): User
     {
-        // Find or create pregnant test user
-        $user = User::firstOrCreate(
-            ['email' => 'test_bumil@prenava.com'],
-            [
-                'name' => 'Bunda Test',
-                'password' => bcrypt('password123'),
-                'role' => 'user',
-                'category' => 'ibu_hamil',
-                'is_active' => true,
-                'total_points' => 0,
-                'points_balance' => 0,
-            ]
-        );
-
-        return $user;
+        $uniq = uniqid();
+        return User::create([
+            'email'          => "test_bumil_{$uniq}@prenava.com",
+            'name'           => 'Bunda Test',
+            'password'       => bcrypt('password123'),
+            'role'           => 'user',
+            'category'       => 'ibu_hamil',
+            'is_active'      => true,
+            'total_points'   => 0,
+            'points_balance' => 0,
+        ]);
     }
 
     public function test_get_daily_progress_returns_maternal_tier_and_hydration()

@@ -8,54 +8,124 @@ use App\Models\KomentarKomunitas;
 use App\Models\Like;
 use App\Models\Saldo;
 use App\Models\User;
+use App\Models\Pregnancy;
+use App\Models\PregnancyCalculator;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
 class KomunitasController extends Controller
 {
+    private static array $kategoriLabels = [
+        'keluhan_gejala' => 'Keluhan & Gejala',
+        'nutrisi'        => 'Nutrisi & Gizi',
+        'persalinan'     => 'Persiapan Persalinan',
+        'mitos_fakta'    => 'Mitos & Fakta Kehamilan',
+        'parenting'      => 'Parenting & Pascapersalinan',
+        'umum'           => 'Diskusi Umum',
+    ];
+
     public function index(Request $request)
     {
-        $page  = $request->query('page', 1);
-        $limit = $request->query('limit', 10);
+        $page     = (int) $request->query('page', 1);
+        $limit    = (int) $request->query('limit', 10);
+        $kategori = $request->query('kategori');
+        $filter   = $request->query('filter', 'all');
+        $search   = $request->query('search');
 
         // Ambil user yang sedang login (nullable, untuk guest)
         $authUser   = $this->resolveAuthenticatedUser();
         $authUserId = $authUser?->user_id;
+        $isBidan    = $authUser?->isBidan() ?? false;
 
-        $Komunitas = Komunitas::with('user')
-            ->orderBy('created_at', 'desc')
+        $query = Komunitas::with(['user.selectedIcon', 'user.bidanProfile']);
+
+        // Filter kategori
+        if (!empty($kategori) && $kategori !== 'semua' && $kategori !== 'all') {
+            $query->where('kategori', $kategori);
+        }
+
+        // Filter status / kepemilikan
+        if ($filter === 'my_posts' && $authUserId) {
+            $query->where('user_id', $authUserId);
+        } elseif ($filter === 'has_bidan_reply') {
+            $query->where('has_bidan_reply', true);
+        } elseif ($filter === 'needs_reply') {
+            $query->where('has_bidan_reply', false);
+        }
+
+        // Pencarian judul / deskripsi
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('judul', 'like', "%{$search}%")
+                  ->orWhere('deskripsi', 'like', "%{$search}%");
+            });
+        }
+
+        $Komunitas = $query->orderBy('created_at', 'desc')
             ->paginate($limit, ['*'], 'page', $page);
 
         // Kumpulkan semua post_id di halaman ini
         $postIds = $Komunitas->pluck('post_id');
 
-        // Satu query untuk cek like milik user ini pada post di halaman ini
+        // Cek like milik user ini pada post di halaman ini
         $likedPostIds = collect();
         if ($authUserId) {
             $likedPostIds = Like::where('user_id', $authUserId)
                 ->whereIn('post_id', $postIds)
                 ->pluck('post_id')
-                ->flip(); // flip agar bisa pakai has() — O(1) lookup
+                ->flip();
         }
 
-        $KomunitasWithUser = $Komunitas->map(function ($komunitas) use ($likedPostIds) {
+        $KomunitasWithUser = $Komunitas->map(function ($komunitas) use ($likedPostIds, $authUserId, $isBidan) {
+            // Masking nama jika anonim (kecuali yang melihat adalah penulis sendiri atau Bidan yang memeriksa)
+            $isOwner = $authUserId && ((string) $komunitas->user_id === (string) $authUserId);
+            $maskName = $komunitas->is_anonymous && !$isOwner && !$isBidan;
+
+            $authorName = $maskName ? 'Bunda Anonim' : ($komunitas->user?->name ?? 'Pengguna Prenava');
+            $authorImage = $maskName ? null : ($komunitas->user?->selected_icon_data_cache ?? null);
+
+            // Susun gestational context
+            $gestationalContext = null;
+            if ($komunitas->gestational_age_weeks || $komunitas->trimester) {
+                $weeks = $komunitas->gestational_age_weeks;
+                $trim  = $komunitas->trimester ?? ($weeks ? ($weeks <= 13 ? 1 : ($weeks <= 27 ? 2 : 3)) : null);
+                $parts = [];
+                if ($trim)  $parts[] = "Trimester {$trim}";
+                if ($weeks) $parts[] = "Mg {$weeks}";
+
+                $gestationalContext = [
+                    'weeks'     => $weeks,
+                    'trimester' => $trim,
+                    'label'     => implode(' • ', $parts),
+                ];
+            }
+
             return [
-                'id'         => $komunitas->post_id,
-                'judul'      => $komunitas->judul,
-                'deskripsi'  => $komunitas->deskripsi,
-                'apresiasi'  => $komunitas->apresiasi,
-                'komen'      => $komunitas->komen,
-                'is_liked'   => $likedPostIds->has($komunitas->post_id), // ← TAMBAHAN
-                'created_at' => $komunitas->created_at,
-                'updated_at' => $komunitas->updated_at,
-                'user_id'    => $komunitas->user_id,
-                'user'       => $komunitas->user ? [
-                    'id'            => $komunitas->user->user_id,
-                    'name'          => $komunitas->user->name,
-                    'profile_image' => $komunitas->user->selected_icon_data_cache ?? null,
-                ] : null,
+                'id'                  => $komunitas->post_id,
+                'judul'               => $komunitas->judul,
+                'deskripsi'           => $komunitas->deskripsi,
+                'kategori'            => $komunitas->kategori ?? 'umum',
+                'kategori_label'      => self::$kategoriLabels[$komunitas->kategori ?? 'umum'] ?? 'Diskusi Umum',
+                'is_anonymous'        => (bool) $komunitas->is_anonymous,
+                'gestational_context' => $gestationalContext,
+                'has_bidan_reply'     => (bool) $komunitas->has_bidan_reply,
+                'apresiasi'           => (int) $komunitas->apresiasi,
+                'komen'               => (int) $komunitas->komen,
+                'gambar'              => $komunitas->gambar,
+                'is_liked'            => $likedPostIds->has($komunitas->post_id),
+                'created_at'          => $komunitas->created_at,
+                'updated_at'          => $komunitas->updated_at,
+                'user_id'             => $maskName ? null : $komunitas->user_id,
+                'user'                => [
+                    'id'            => $maskName ? null : $komunitas->user?->user_id,
+                    'name'          => $authorName,
+                    'role'          => $komunitas->user?->role ?? 'ibu_hamil',
+                    'profile_image' => $authorImage,
+                ],
             ];
         });
 
@@ -72,27 +142,76 @@ class KomunitasController extends Controller
 
     public function indexid($id)
     {
-        $komunitas = Komunitas::find($id);
+        $komunitas = Komunitas::with(['user.selectedIcon', 'user.bidanProfile'])->find($id);
 
         if (!$komunitas) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Data tidak ditemukan untuk post_id: ' . $id
             ], 404);
         }
 
-        return response()->json([
-            'status' => 'success',
-            'Komunitas' => $komunitas
-        ]);
-    }
-    
-     public function indexlatest()
-    {
-        $Komunitas = Komunitas::latest()->first();
+        $authUser   = $this->resolveAuthenticatedUser();
+        $authUserId = $authUser?->user_id;
+        $isBidan    = $authUser?->isBidan() ?? false;
+        $isOwner    = $authUserId && ((string) $komunitas->user_id === (string) $authUserId);
+        $maskName   = $komunitas->is_anonymous && !$isOwner && !$isBidan;
+
+        $isLiked = false;
+        if ($authUserId) {
+            $isLiked = Like::where('user_id', $authUserId)->where('post_id', $komunitas->post_id)->exists();
+        }
+
+        $gestationalContext = null;
+        if ($komunitas->gestational_age_weeks || $komunitas->trimester) {
+            $weeks = $komunitas->gestational_age_weeks;
+            $trim  = $komunitas->trimester ?? ($weeks ? ($weeks <= 13 ? 1 : ($weeks <= 27 ? 2 : 3)) : null);
+            $parts = [];
+            if ($trim)  $parts[] = "Trimester {$trim}";
+            if ($weeks) $parts[] = "Mg {$weeks}";
+
+            $gestationalContext = [
+                'weeks'     => $weeks,
+                'trimester' => $trim,
+                'label'     => implode(' • ', $parts),
+            ];
+        }
+
+        $data = [
+            'id'                  => $komunitas->post_id,
+            'judul'               => $komunitas->judul,
+            'deskripsi'           => $komunitas->deskripsi,
+            'kategori'            => $komunitas->kategori ?? 'umum',
+            'kategori_label'      => self::$kategoriLabels[$komunitas->kategori ?? 'umum'] ?? 'Diskusi Umum',
+            'is_anonymous'        => (bool) $komunitas->is_anonymous,
+            'gestational_context' => $gestationalContext,
+            'has_bidan_reply'     => (bool) $komunitas->has_bidan_reply,
+            'apresiasi'           => (int) $komunitas->apresiasi,
+            'komen'               => (int) $komunitas->komen,
+            'gambar'              => $komunitas->gambar,
+            'is_liked'            => $isLiked,
+            'created_at'          => $komunitas->created_at,
+            'updated_at'          => $komunitas->updated_at,
+            'user'                => [
+                'id'            => $maskName ? null : $komunitas->user?->user_id,
+                'name'          => $maskName ? 'Bunda Anonim' : ($komunitas->user?->name ?? 'Pengguna Prenava'),
+                'role'          => $komunitas->user?->role ?? 'ibu_hamil',
+                'profile_image' => $maskName ? null : ($komunitas->user?->selected_icon_data_cache ?? null),
+            ],
+        ];
 
         return response()->json([
-            'Komunitas' => $Komunitas
+            'status'    => 'success',
+            'Komunitas' => $data,
+        ]);
+    }
+
+    public function indexlatest()
+    {
+        $komunitas = Komunitas::latest('created_at')->first();
+
+        return response()->json([
+            'Komunitas' => $komunitas
         ]);
     }
 
@@ -102,11 +221,13 @@ class KomunitasController extends Controller
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 401);
         }
-        
+
         $request->validate([
-            'judul' => 'required',
-            'deskripsi' => 'required',
-            'gambar' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:1024',
+            'judul'        => 'required|string|max:255',
+            'deskripsi'    => 'required|string',
+            'kategori'     => 'nullable|string|max:50',
+            'is_anonymous' => 'nullable|boolean',
+            'gambar'       => 'nullable',
         ]);
 
         $gambarPath = null;
@@ -117,245 +238,268 @@ class KomunitasController extends Controller
             $gambarPath = $request->gambar;
         }
 
+        // Resolusi usia kehamilan otomatis dari data kehamilan aktif pengguna
+        $gestationalWeeks = null;
+        $trimester = null;
+
+        $pregnancy = Pregnancy::where('user_id', $user->user_id)
+            ->where('status', 'active')
+            ->latest()
+            ->first();
+
+        if (!$pregnancy) {
+            $pregnancy = Pregnancy::where('user_id', $user->user_id)->latest()->first();
+        }
+
+        if ($pregnancy) {
+            if ($pregnancy->lmp_date) {
+                $days = Carbon::parse($pregnancy->lmp_date)->diffInDays(now());
+                $gestationalWeeks = (int) max(1, min(42, floor($days / 7)));
+            } elseif ($pregnancy->gestational_age_weeks) {
+                $gestationalWeeks = (int) $pregnancy->gestational_age_weeks;
+            }
+        }
+
+        if (!$gestationalWeeks) {
+            $calc = PregnancyCalculator::where('user_id', $user->user_id)->latest()->first();
+            if ($calc && $calc->hpht) {
+                $days = Carbon::parse($calc->hpht)->diffInDays(now());
+                $gestationalWeeks = (int) max(1, min(42, floor($days / 7)));
+            }
+        }
+
+        if ($gestationalWeeks) {
+            if ($gestationalWeeks <= 13) {
+                $trimester = 1;
+            } elseif ($gestationalWeeks <= 27) {
+                $trimester = 2;
+            } else {
+                $trimester = 3;
+            }
+        }
+
+        $kategori = $request->input('kategori', 'umum');
+        if (!array_key_exists($kategori, self::$kategoriLabels)) {
+            $kategori = 'umum';
+        }
+
         $komunitas = Komunitas::create([
-            'user_id' => $user->user_id,
-            'judul' => $request->judul,
-            'deskripsi' => $request->deskripsi,
-            'gambar' => $gambarPath,
-            'apresiasi' => 0, 
-            'komen' => 0, 
+            'user_id'               => $user->user_id,
+            'judul'                 => $request->judul,
+            'kategori'              => $kategori,
+            'is_anonymous'          => $request->boolean('is_anonymous', false),
+            'gestational_age_weeks' => $gestationalWeeks,
+            'trimester'             => $trimester,
+            'deskripsi'             => $request->deskripsi,
+            'gambar'                => $gambarPath,
+            'apresiasi'             => 0,
+            'komen'                 => 0,
+            'has_bidan_reply'       => false,
         ]);
-        
+
         return response()->json([
-            'status' => 'berhasil',
+            'status'  => 'berhasil',
             'message' => 'Post created successfully',
-            'data' => $komunitas
+            'data'    => $komunitas
         ], 201);
     }
 
-public function addComment(Request $request, $postId)
-{
-    $user = $this->resolveAuthenticatedUser();
+    public function addComment(Request $request, $postId)
+    {
+        $user = $this->resolveAuthenticatedUser();
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 401);
-            }
+        }
 
-    $request->validate([
-        'komentar' => 'required|string|max:1000',
-    ]);
-
-    // Check if the post exists
-    $post = Komunitas::find($postId);
-    
-    if (!$post) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Post not found'
-        ], 404);
-    }
-
-    // Get current user from token (assume this is handled by auth middleware)
-    $user = $this->resolveAuthenticatedUser();
-    $userId = $user ? $user->user_id : null;
-
-    // Create the comment
-    try {
-        $komentarKomunitas = KomentarKomunitas::create([
-            'post_id' => $postId, // Use the URL parameter
-            'user_id' => $user->user_id, // Simpan user ID dari JWT
-            'komentar' => $request->komentar,
+        $request->validate([
+            'komentar'            => 'required|string|max:2000',
+            'suggest_appointment' => 'nullable|boolean',
         ]);
 
-        // Increment comment count on post
-        $post->increment('komen');
-        
-        return response()->json([
-            'status' => 'berhasil',
-            'message' => 'Comment added successfully',
-            'data' => $komentarKomunitas
-        ], 201);
-    } catch (\Exception $e) {
-        Log::error('Error adding comment: ' . $e->getMessage());
-        
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Failed to add comment',
-            'debug_info' => config('app.debug') ? $e->getMessage() : null
-        ], 500);
-    }
-}
-
-    public function getComments($postId)
-    {
-        // Check if post with this ID exists
         $post = Komunitas::find($postId);
-        
         if (!$post) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Post not found'
             ], 404);
         }
 
-        // Ambil semua komentar untuk post ini beserta data user-nya
-        $comments = KomentarKomunitas::where('post_id', $postId)
-            ->with('user')
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($comment) {
-                return [
-                    'id' => $comment->id,
-                    'post_id' => $comment->post_id,
-                    'user_id' => $comment->user_id,
-                    'komentar' => $comment->komentar,
-                    'created_at' => $comment->created_at,
-                    'updated_at' => $comment->updated_at,
-                    'user' => $comment->user ? [
-                        'id' => $comment->user->user_id,
-                        'name' => $comment->user->name,
-                        'profile_image' => $comment->user->selected_icon_data_cache ?? null,
-                    ] : null,
-                ];
-            });
-        
-        return response()->json([
-            'status' => 'berhasil',
-            'data' => $comments
-        ], 200);
+        $isBidan = $user->isBidan();
+
+        try {
+            DB::beginTransaction();
+
+            $komentarKomunitas = KomentarKomunitas::create([
+                'post_id'             => $postId,
+                'user_id'             => $user->user_id,
+                'komentar'            => $request->komentar,
+                'is_bidan_reply'      => $isBidan,
+                'is_pinned'           => $isBidan, // Jawaban bidan otomatis disematkan di paling atas
+                'suggest_appointment' => $isBidan ? $request->boolean('suggest_appointment', false) : false,
+                'bidan_user_id'       => $isBidan ? $user->user_id : null,
+            ]);
+
+            $post->increment('komen');
+            if ($isBidan && !$post->has_bidan_reply) {
+                $post->update(['has_bidan_reply' => true]);
+            }
+
+            // Jika bidan menjawab dan pemilik postingan bukan bidan itu sendiri, kirimkan notifikasi
+            if ($isBidan && (string) $post->user_id !== (string) $user->user_id) {
+                \App\Models\UserNotification::create([
+                    'user_id' => $post->user_id,
+                    'type'    => 'bidan_forum_reply',
+                    'title'   => 'Tanggapan Medis Diterima',
+                    'message' => "Bidan {$user->name} telah memberikan tanggapan klinis pada pertanyaan: \"{$post->judul}\"",
+                    'data'    => [
+                        'post_id'             => (int) $post->post_id,
+                        'bidan_user_id'       => (int) $user->user_id,
+                        'bidan_name'          => $user->name,
+                        'suggest_appointment' => $request->boolean('suggest_appointment', false),
+                    ],
+                    'is_read' => false,
+                ]);
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => 'berhasil',
+                'message' => 'Comment added successfully',
+                'data'    => $komentarKomunitas
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error adding comment: ' . $e->getMessage());
+
+            return response()->json([
+                'status'     => 'error',
+                'message'    => 'Failed to add comment',
+                'debug_info' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
     }
 
+    public function getComments($postId)
+    {
+        $post = Komunitas::find($postId);
+        if (!$post) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Post not found'
+            ], 404);
+        }
 
+        // Urutkan: Tersemat (Pinned) paling atas, lalu Tanggapan Bidan, lalu kronologis ASC
+        $comments = KomentarKomunitas::where('post_id', $postId)
+            ->with(['user.selectedIcon', 'user.bidanProfile', 'bidan.bidanProfile'])
+            ->orderBy('is_pinned', 'desc')
+            ->orderBy('is_bidan_reply', 'desc')
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(function ($comment) {
+                $authorUser = $comment->user;
+                $isBidan = (bool) $comment->is_bidan_reply || ($authorUser?->isBidan() ?? false);
+
+                $bidanProfileData = null;
+                if ($isBidan) {
+                    $bidanUser = $comment->bidan ?? $authorUser;
+                    $bProfile  = $bidanUser?->bidanProfile;
+
+                    $bidanProfileData = [
+                        'bidan_id'       => $bidanUser?->user_id,
+                        'name'           => $bidanUser?->name,
+                        'tempat_praktik' => $bProfile?->tempat_praktik ?? 'Klinik Pratama Prenava',
+                        'alamat_praktik' => $bProfile?->alamat_praktik ?? 'Jl. Pelayanan Kesehatan Ibu & Anak',
+                        'kota'           => $bProfile?->kota_tempat_praktik ?? 'Kota Bandung',
+                        'spesialisasi'   => $bProfile?->spesialisasi ?? 'Kebidanan Umum & ANC',
+                        'nomor_sipb'     => 'SIPB/503/012/2024',
+                    ];
+                }
+
+                return [
+                    'id'                  => $comment->id,
+                    'post_id'             => $comment->post_id,
+                    'user_id'             => $comment->user_id,
+                    'komentar'            => $comment->komentar,
+                    'is_bidan_reply'      => $isBidan,
+                    'is_pinned'           => (bool) $comment->is_pinned,
+                    'suggest_appointment' => (bool) $comment->suggest_appointment,
+                    'bidan_user_id'       => $comment->bidan_user_id,
+                    'bidan_profile'       => $bidanProfileData,
+                    'created_at'          => $comment->created_at,
+                    'updated_at'          => $comment->updated_at,
+                    'author'              => [
+                        'id'            => $authorUser?->user_id,
+                        'name'          => $authorUser?->name ?? 'Pengguna Prenava',
+                        'role'          => $isBidan ? 'bidan' : ($authorUser?->role ?? 'ibu_hamil'),
+                        'profile_image' => $authorUser?->selected_icon_data_cache ?? null,
+                    ],
+                ];
+            });
+
+        return response()->json([
+            'status' => 'berhasil',
+            'data'   => $comments
+        ], 200);
+    }
 
     public function addLike(Request $request, $postId)
     {
         DB::beginTransaction();
         try {
-            // Check if post exists
             $post = Komunitas::find($postId);
-            
             if (!$post) {
                 return response()->json([
-                    'status' => 'error',
+                    'status'  => 'error',
                     'message' => 'Post not found'
                 ], 404);
             }
 
-            // Get current user from token (assume this is handled by auth middleware)
             $user = $this->resolveAuthenticatedUser();
             if (!$user) {
                 return response()->json(['message' => 'Unauthorized'], 401);
             }
 
-            // Check if user already liked this post
             $existingLike = Like::where('post_id', $postId)
                                 ->where('user_id', $user->user_id)
                                 ->first();
-            
+
             if ($existingLike) {
-                // User already liked, so remove the like (unlike)
                 $existingLike->delete();
-                
-                // Decrease like count
                 $post->decrement('apresiasi');
-                
                 DB::commit();
-                
+
                 return response()->json([
-                    'status' => 'berhasil',
-                    'message' => 'Post unliked successfully',
-                    'is_liked' => false,
-                    'apresiasi' => $post->apresiasi // Return the updated count
+                    'status'    => 'berhasil',
+                    'message'   => 'Post unliked successfully',
+                    'is_liked'  => false,
+                    'apresiasi' => $post->apresiasi
                 ], 200);
             } else {
-                // User hasn't liked, add like
                 Like::create([
                     'post_id' => $postId,
                     'user_id' => $user->user_id,
                 ]);
-                
-                // Increase like count
-                $post->increment('apresiasi');
-                
-            // Refresh post data to get updated apresiasi count
-                $post->refresh();
-                
-                // Check for incentive based on configurable threshold
-                $threshold = (int) DB::table('parameterized')
-                    ->where('key', 'INCENTIVE_LIKE_THRESHOLD')
-                    ->value('value') ?: 99;
 
-                $incentiveMessage = '';
-                if ($post->apresiasi >= $threshold) {
-                    $incentiveResult = $this->checkAndGiveIncentive($post);
-                    if ($incentiveResult['given']) {
-                        $incentiveMessage = $incentiveResult['message'];
-                    }
-                }
-                
+                $post->increment('apresiasi');
+                $post->refresh();
+
                 DB::commit();
-                
-                $response = [
-                    'status' => 'berhasil',
-                    'message' => 'Post liked successfully',
-                    'is_liked' => true,
+
+                return response()->json([
+                    'status'    => 'berhasil',
+                    'message'   => 'Post liked successfully',
+                    'is_liked'  => true,
                     'apresiasi' => $post->apresiasi
-                ];
-                
-                // Add incentive message if applicable
-                if (!empty($incentiveMessage)) {
-                    $response['incentive_message'] = $incentiveMessage;
-                }
-                
-                return response()->json($response, 201);
+                ], 201);
             }
         } catch (\Exception $e) {
-            DB::rollback();
+            DB::rollBack();
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Something went wrong: ' . $e->getMessage()
             ], 500);
-        }
-    }
-
-    private function checkAndGiveIncentive($post)
-    {
-        try {
-            // Get post owner
-            $postOwner = User::find($post->user_id);
-            if (!$postOwner) {
-                return ['given' => false, 'message' => 'Post owner not found'];
-            }
-            
-            // Check if this post has already received incentive
-            // Assuming you have a table to track incentives or use a flag in posts table
-            // Option 1: Check if there's already an incentive record for this post
-            $existingIncentive = Saldo::where('user_id', $postOwner->user_id)
-                                    ->where('keterangan', 'LIKE', 'Insentif 99+ likes untuk post ID: ' . $post->post_id)
-                                    ->first();
-            
-            if ($existingIncentive) {
-                return ['given' => false, 'message' => 'Incentive already given for this post'];
-            }
-            
-            // Give incentive
-            $saldo = new Saldo();
-            $saldo->user_id = $postOwner->user_id;
-            $saldo->setAttribute('amount', 5000);
-            $saldo->type = 'credit';
-            $saldo->keterangan = 'Insentif 99+ likes untuk post ID: ' . $post->post_id;
-            $saldo->save();
-
-            // Update total saldo pada user
-            $postOwner->saldo_total = $postOwner->saldo_total + 5000;
-            $postOwner->save();
-            
-            return [
-                'given' => true, 
-                'message' => 'Selamat! Pemilik post mendapat insentif Rp 5.000 karena mencapai 99+ likes!'
-            ];
-            
-        } catch (\Exception $e) {
-            return ['given' => false, 'message' => 'Error giving incentive: ' . $e->getMessage()];
         }
     }
 
@@ -365,41 +509,39 @@ public function addComment(Request $request, $postId)
             'user_id' => 'required',
         ]);
 
-        // Cek apakah user sudah memberikan like pada post ini
         $existingLike = Like::where('post_id', $postId)
                             ->where('user_id', $request->user_id)
                             ->exists();
-        
+
         return response()->json([
-            'status' => 'berhasil',
+            'status'   => 'berhasil',
             'is_liked' => $existingLike
         ], 200);
     }
 
     public function deleteAll()
     {
-        Komunitas::truncate(); 
+        Komunitas::truncate();
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => 'All data deleted successfully'
         ], 200);
     }
 
-   
     public function deleteById($id)
     {
         $komunitas = Komunitas::find($id);
 
         if (!$komunitas) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Data not found'
             ], 404);
         }
 
         $komunitas->delete();
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => 'Data deleted successfully'
         ], 200);
     }
@@ -409,91 +551,55 @@ public function addComment(Request $request, $postId)
         DB::beginTransaction();
 
         try {
-            $authorizationHeader = $request->header('Authorization');
-
-            if (!$authorizationHeader || !str_starts_with($authorizationHeader, 'Bearer ')) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Unauthorized'
-                ], 401);
-            }
-
-            $token = str_replace('Bearer ', '', $authorizationHeader);
-
-            try {
-                $user = JWTAuth::setToken($token)->authenticate();
-            } catch (\Exception $e) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Invalid token'
-                ], 401);
-            }
-
+            $user = $this->resolveAuthenticatedUser();
             if (!$user) {
                 return response()->json([
-                    'status' => 'error',
+                    'status'  => 'error',
                     'message' => 'Unauthorized'
                 ], 401);
             }
 
             $userId = (int) $user->user_id;
 
-            $commentTable = (new KomentarKomunitas)->getTable();
-            $postTable = (new Komunitas)->getTable();
-
-            $comment = DB::table($commentTable)
-                ->where('id', $id)
-                ->first();
+            $comment = KomentarKomunitas::find($id);
 
             if (!$comment) {
                 DB::rollBack();
-
                 return response()->json([
-                    'status' => 'error',
+                    'status'  => 'error',
                     'message' => 'Comment not found'
                 ], 404);
             }
 
-            if ((int) $comment->user_id !== $userId) {
+            // Izinkan jika pemilik komentar ATAU Bidan ATAU Admin
+            if ((int) $comment->user_id !== $userId && !$user->isBidan() && !$user->isAdmin()) {
                 DB::rollBack();
-
                 return response()->json([
-                    'status' => 'error',
-                    'message' => 'Forbidden',
-                    'debug' => [
-                        'comment_id' => $comment->id,
-                        'comment_user_id' => $comment->user_id,
-                        'auth_user_id' => $userId,
-                    ],
+                    'status'  => 'error',
+                    'message' => 'Forbidden'
                 ], 403);
             }
 
-            DB::table($commentTable)
-                ->where('id', $id)
-                ->delete();
+            $postId = $comment->post_id;
+            $comment->delete();
 
-            $post = DB::table($postTable)
-                ->where('post_id', $comment->post_id)
-                ->first();
-
+            $post = Komunitas::find($postId);
             if ($post && $post->komen > 0) {
-                DB::table($postTable)
-                    ->where('post_id', $comment->post_id)
-                    ->decrement('komen');
+                $post->decrement('komen');
             }
 
             DB::commit();
 
             return response()->json([
-                'status' => 'success',
+                'status'  => 'success',
                 'message' => 'Comment deleted successfully'
             ], 200);
         } catch (\Exception $e) {
             DB::rollBack();
 
             return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to delete comment',
+                'status'     => 'error',
+                'message'    => 'Failed to delete comment',
                 'debug_info' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
@@ -504,15 +610,13 @@ public function addComment(Request $request, $postId)
      */
     private function resolveAuthenticatedUser(): ?User
     {
-        $user = Auth::guard('api')->user();
-        if ($user) {
-            return $user;
+        try {
+            if ($tokenUser = JWTAuth::parseToken()->authenticate()) {
+                return $tokenUser;
+            }
+        } catch (\Throwable $th) {
         }
 
-        try {
-            return JWTAuth::parseToken()->authenticate();
-        } catch (\Throwable $th) {
-            return null;
-        }
+        return Auth::guard('api')->user();
     }
 }
