@@ -37,6 +37,7 @@ use App\Http\Controllers\PregnancyTipController;
 use App\Http\Controllers\CatatanIbuController;
 use App\Http\Controllers\HistoryLogController;
 use App\Http\Controllers\DailyFeatureController;
+use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\LocalWisdomController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\MealPlanController;
@@ -435,14 +436,18 @@ Route::prefix('user')->middleware(['auth:api'])->group(function () {
     // CDSS Maternal Triage & Health Completeness (Mobile Patient Self-Monitoring)
     Route::get('/maternal-triage', [BidanTriageController::class, 'getMyTriage']);
 
-    // Daily Features & Smart Incentive Hub
+    // Daily Features, Smart Gamification & Badges
     Route::put('/category', [DailyFeatureController::class, 'updateCategory']);
     Route::get('/daily-progress', [DailyFeatureController::class, 'getProgress']);
     Route::post('/daily-task/complete', [DailyFeatureController::class, 'completeTask']);
     Route::post('/daily-task/verify-food', [DailyFeatureController::class, 'verifyFoodPlate']);
+    Route::post('/food-compliance', [DailyFeatureController::class, 'verifyFoodPlate']);
+    Route::post('/hydration/drink', [DailyFeatureController::class, 'drinkWater']);
+    Route::get('/badges', [BadgeController::class, 'index']);
     Route::get('/wallet/summary', [DailyFeatureController::class, 'getWalletSummary']);
     // Auto-track feature access (called on navigation)
     Route::post('/feature-track', [DailyFeatureController::class, 'trackFeature']);
+    Route::post('/daily-task/track-feature', [DailyFeatureController::class, 'trackFeature']);
     // Analytics for Tugas Akhir research
     Route::get('/feature-analytics', [DailyFeatureController::class, 'featureAnalytics']);
 

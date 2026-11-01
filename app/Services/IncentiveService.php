@@ -208,9 +208,6 @@ class IncentiveService
                 'keterangan' => 'Insentif: ' . $description,
             ]);
 
-            // Sinkronkan juga users.saldo_total agar tidak tampil 0 pada legacy endpoint
-            $user->increment('saldo_total', $points);
-
             // 5. Evaluasi Lencana Prestasi (Badges)
             $newBadges = $this->evaluateBadges($user);
 
@@ -589,10 +586,12 @@ class IncentiveService
                 'lifetime_points' => (int) $user->total_points,
             ],
             'tier_info' => $tierInfo,
-            'streak' => [
-                'current_streak'        => (int) $streak->current_streak,
-                'longest_streak'        => (int) $streak->longest_streak,
-                'is_streak_active_today'=> ($streak->last_activity_date?->toDateString() === $today),
+            'streak' => (int) $streak->current_streak,
+            'longest_streak' => (int) $streak->longest_streak,
+            'streak_details' => [
+                'current_streak'         => (int) $streak->current_streak,
+                'longest_streak'         => (int) $streak->longest_streak,
+                'is_streak_active_today' => ($streak->last_activity_date?->toDateString() === $today),
             ],
             'hydration' => [
                 'current_glasses'    => $currentGlasses,
