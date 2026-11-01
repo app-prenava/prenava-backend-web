@@ -112,7 +112,7 @@ class BidanDashboardController extends Controller
             ], 403);
         }
 
-        $query = Appointment::with(['user', 'location', 'consent'])
+        $query = Appointment::with(['user.userProfile', 'user.pregnancies', 'location', 'consent'])
             ->where('bidan_id', $userId);
 
         // Filter by status
@@ -160,7 +160,7 @@ class BidanDashboardController extends Controller
             ], 403);
         }
 
-        $appointment = Appointment::with(['location', 'consent'])
+        $appointment = Appointment::with(['user.userProfile', 'user.pregnancies', 'location', 'consent'])
             ->where('bidan_id', $userId)
             ->where('appointment_id', $id)
             ->first();

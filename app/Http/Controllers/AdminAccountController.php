@@ -335,9 +335,24 @@ class AdminAccountController extends Controller
                 ->groupBy('user_id');
         }
 
-        $ibuHamil = $query->get()->map(function ($row) use ($anemiaHistory, $depressionHistory, $stuntingHistory) {
+        $pregnancies = collect();
+        if (Schema::hasTable('pregnancies')) {
+            $pregnancies = DB::table('pregnancies')
+                ->whereIn('user_id', $userIds)
+                ->where('status', 'ongoing')
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->groupBy('user_id');
+        }
+
+        $ibuHamil = $query->get()->map(function ($row) use ($anemiaHistory, $depressionHistory, $stuntingHistory, $pregnancies) {
             $row->photo_url = \App\Helpers\PhotoHelper::transformPhotoUrl($row->photo, 'public');
             
+            // Masukkan usia kehamilan berjalan jika ada
+            $row->gestational_age_weeks = isset($pregnancies[$row->user_id])
+                ? $pregnancies[$row->user_id]->first()->gestational_age_weeks
+                : null;
+
             // Masukkan 5 history terakhir untuk masing-masing deteksi
             $row->anemia_history = isset($anemiaHistory[$row->user_id]) 
                 ? $anemiaHistory[$row->user_id]->take(5)->values() 

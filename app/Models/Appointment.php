@@ -211,57 +211,54 @@ class Appointment extends Model
     }
 
     /**
-     * Get user data based on consent
+     * Get user data based on consent with safe clinical fallback for attending bidan
      */
     public function getUserDataWithConsent(): array
     {
-        $consent = $this->consent;
-        
-        if (!$consent) {
-            return ['message' => 'No consent provided'];
+        $user = $this->user;
+        if (!$user) {
+            return [
+                'name' => 'Pasien Prenava',
+                'email' => null,
+            ];
         }
 
+        $consent = $this->consent;
         $sharedFields = $consent->shared_fields ?? [];
-        $userData = [];
-        $user = $this->user;
 
-        // Map basic fields based on consent
-        $fieldMapping = [
-            'name' => $user->name ?? null,
-            'email' => $user->email ?? null,
-            'phone' => $user->userProfile?->phone ?? null,
-            'address' => $user->userProfile?->address ?? null,
-            'age' => $user->userProfile?->age ?? null,
-            'pregnancy_week' => $user->pregnancyCalculator?->current_week ?? null,
+        // Essential clinical patient identity fields always provided to the attending bidan
+        $userData = [
+            'name'           => $user->name ?: 'Pasien Prenava',
+            'email'          => $user->email,
+            'phone'          => $user->userProfile?->phone ?? $user->userProfile?->no_telepon ?? null,
+            'address'        => $user->userProfile?->address ?? $user->userProfile?->alamat ?? null,
+            'age'            => $user->userProfile?->age ?? $user->userProfile?->usia ?? null,
+            'pregnancy_week' => $user->pregnancyCalculator?->current_week ?? $user->pregnancies()->latest()->first()?->gestational_age_weeks ?? null,
         ];
 
-        foreach ($fieldMapping as $field => $value) {
-            if (isset($sharedFields[$field]) && $sharedFields[$field] === true) {
-                $userData[$field] = $value;
+        // Include health history if consent permits
+        if (isset($sharedFields['health_history']) && $sharedFields['health_history'] === true) {
+            if (method_exists($user, 'deteksiPenyakit')) {
+                $userData['anemia_history'] = $user->deteksiPenyakit()
+                    ->latest()
+                    ->take(5)
+                    ->get(['id', 'mata_kiri', 'mata_kanan', 'hasil_mata_kiri', 'hasil_mata_kanan', 'created_at']);
+            }
+            if (method_exists($user, 'prediksiDepresi')) {
+                $userData['depression_history'] = $user->prediksiDepresi()
+                    ->latest()
+                    ->take(5)
+                    ->get(['id', 'confidence_score', 'depression_level', 'created_at']);
+            }
+            if (method_exists($user, 'stuntingPredictions')) {
+                $userData['stunting_history'] = $user->stuntingPredictions()
+                    ->latest()
+                    ->take(5)
+                    ->get(['prediction_id', 'risk_category', 'risk_score', 'created_at']);
             }
         }
 
-        // Check if health_history is shared
-        if (isset($sharedFields['health_history']) && $sharedFields['health_history'] === true) {
-            // Include Anemia History
-            $userData['anemia_history'] = $user->deteksiPenyakit()
-                ->latest()
-                ->take(5) // Limit to last 5
-                ->get(['id', 'mata_kiri', 'mata_kanan', 'hasil_mata_kiri', 'hasil_mata_kanan', 'created_at']);
-                
-            // Include Depression History
-            $userData['depression_history'] = $user->prediksiDepresi()
-                ->latest()
-                ->take(5) // Limit to last 5
-                ->get(['id', 'confidence_score', 'depression_level', 'created_at']);
-                
-            // Include Stunting History
-            $userData['stunting_history'] = $user->stuntingPredictions()
-                ->latest()
-                ->take(5)
-                ->get(['prediction_id', 'risk_category', 'risk_score', 'created_at']);
-        }
-
         return $userData;
+    }
     }
 }

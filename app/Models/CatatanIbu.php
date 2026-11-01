@@ -25,6 +25,14 @@ class CatatanIbu extends Model
         'q8_sakit_kencing',
         'q9_diare',
         'hasil_kunjungan',
+        'systolic_bp',
+        'diastolic_bp',
+        'weight_kg',
+        'fundal_height_cm',
+        'fetal_heart_rate_bpm',
+        'hemoglobin_gdl',
+        'therapy_notes',
+        'next_visit_date',
     ];
 
     protected $casts = [
@@ -38,6 +46,13 @@ class CatatanIbu extends Model
         'q7_cairan_jalan_lahir' => 'boolean',
         'q8_sakit_kencing' => 'boolean',
         'q9_diare' => 'boolean',
+        'systolic_bp' => 'integer',
+        'diastolic_bp' => 'integer',
+        'weight_kg' => 'float',
+        'fundal_height_cm' => 'float',
+        'fetal_heart_rate_bpm' => 'integer',
+        'hemoglobin_gdl' => 'float',
+        'next_visit_date' => 'date',
     ];
 
     /**
