@@ -26,6 +26,8 @@ class User extends Authenticatable implements JWTSubject
         'is_active',
         'token_version',
         'category',
+        'total_points',
+        'points_balance',
         'google_id',
         'auth_provider',
         'email_verified_at',
@@ -294,5 +296,55 @@ class User extends Authenticatable implements JWTSubject
     public function taskLogs(): HasMany
     {
         return $this->hasMany(UserTaskLog::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Get user point transactions (Gamifikasi Poin Sehat)
+     */
+    public function pointTransactions(): HasMany
+    {
+        return $this->hasMany(PointTransaction::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Get user badges pivot records
+     */
+    public function userBadges(): HasMany
+    {
+        return $this->hasMany(UserBadge::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Get user unlocked badges
+     */
+    public function badges()
+    {
+        return $this->belongsToMany(Badge::class, 'user_badges', 'user_id', 'badge_id', 'user_id', 'id')
+            ->withPivot('unlocked_at')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get user water intakes
+     */
+    public function waterIntakes(): HasMany
+    {
+        return $this->hasMany(WaterIntake::class, 'user_id', 'user_id');
+    }
+
+    /**
+     * Helper to award points atomically
+     */
+    public function addPoints(int $points, string $actionType, ?string $referenceId = null, string $description = ''): PointTransaction
+    {
+        $this->increment('total_points', $points);
+        $this->increment('points_balance', $points);
+
+        return $this->pointTransactions()->create([
+            'points' => $points,
+            'action_type' => $actionType,
+            'reference_id' => $referenceId,
+            'description' => $description,
+        ]);
     }
 }

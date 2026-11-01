@@ -119,6 +119,7 @@ class DatabaseSeeder extends Seeder
             BannerSeeder::class,
             CatatanIbuSeeder::class,
             DailyTaskSeeder::class,
+            BadgeSeeder::class,
             DataMlSportSeeder::class,
             LocalWisdomSeeder::class,
             ParameterizedSeeder::class,
