@@ -14,6 +14,8 @@ services:
       - nuri-net
     ports:
       - "8000:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       APP_ENV: local
       APP_DEBUG: true
