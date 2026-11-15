@@ -128,6 +128,7 @@ class DatabaseSeeder extends Seeder
             ShopReviewSeeder::class,
             KomunitasPostSeeder::class,
             KomunitasLikeSeeder::class,
+            BidanLocationSeeder::class,
         ]);
     }
 }

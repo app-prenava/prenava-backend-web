@@ -260,5 +260,4 @@ class Appointment extends Model
 
         return $userData;
     }
-    }
 }

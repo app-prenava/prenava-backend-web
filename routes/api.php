@@ -112,10 +112,16 @@ Route::get('/profile', action: [AddProfileController::class, 'show']);
 
 
 Route::get('/admin/users', [AdminAccountController::class, 'allUser']);
+Route::put('/admin/users/{userId}', [AdminAccountController::class, 'adminUpdateUser']);
+Route::delete('/admin/users/{userId}', [AdminAccountController::class, 'adminDeleteUser']);
+Route::get('/admin/bidan/{userId}/profile', [AdminAccountController::class, 'adminGetBidanProfile']);
+Route::get('/admin/dinkes/{userId}/profile', [AdminAccountController::class, 'adminGetDinkesProfile']);
 Route::post('/admin/create/account/bidan',  [AdminAccountController::class, 'createBidan']);
 Route::post('/admin/create/account/dinkes', [AdminAccountController::class, 'createDinkes']);
 Route::post('/admin/users/{userId}/reset-password', [AdminAccountController::class, 'reset']);
 Route::get('/bidan/ibu-hamil', [AdminAccountController::class, 'bidanIbuHamil']);
+Route::get('/dinkes/surveillance', [AdminAccountController::class, 'dinkesSurveillance']);
+Route::get('/dinkes/ibu-hamil', [AdminAccountController::class, 'bidanIbuHamil']);
 
 Route::get('/admin/shop/logs', [ShopController::class, 'getShopLogs']);
 Route::get('/shop', [ShopController::class, 'getByUser']);
@@ -371,6 +377,8 @@ Route::prefix('admin')->middleware(['auth:api'])->group(function () {
     Route::get('/subscription-plans', [AdminBidanController::class, 'getPlans']);
     Route::post('/subscription-plans', [AdminBidanController::class, 'createPlan']);
     Route::put('/subscription-plans/{id}', [AdminBidanController::class, 'updatePlan']);
+    Route::patch('/subscription-plans/{id}/toggle', [AdminBidanController::class, 'togglePlanStatus']);
+    Route::delete('/subscription-plans/{id}', [AdminBidanController::class, 'deletePlan']);
     
     // Bidan Applications Management
     Route::get('/bidan-applications', [AdminBidanController::class, 'getApplications']);

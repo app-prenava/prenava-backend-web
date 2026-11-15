@@ -125,6 +125,68 @@ class AdminBidanController extends Controller
     }
 
     /**
+     * Toggle subscription plan active status (Admin)
+     * PATCH /api/admin/subscription-plans/{id}/toggle
+     */
+    public function togglePlanStatus(int $id): JsonResponse
+    {
+        $plan = SubscriptionPlan::find($id);
+
+        if (!$plan) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Paket langganan tidak ditemukan',
+            ], 404);
+        }
+
+        $plan->update([
+            'is_active' => !$plan->is_active,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => $plan->is_active
+                ? 'Paket langganan berhasil diaktifkan'
+                : 'Paket langganan berhasil dinonaktifkan',
+            'data' => $plan->fresh(),
+        ]);
+    }
+
+    /**
+     * Delete subscription plan (Admin)
+     * DELETE /api/admin/subscription-plans/{id}
+     */
+    public function deletePlan(int $id): JsonResponse
+    {
+        $plan = SubscriptionPlan::find($id);
+
+        if (!$plan) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Paket langganan tidak ditemukan',
+            ], 404);
+        }
+
+        $hasActiveSub = BidanSubscription::where('subscription_plan_id', $id)
+            ->where('status', 'active')
+            ->exists();
+
+        if ($hasActiveSub) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Paket tidak dapat dihapus karena sedang digunakan oleh akun bidan aktif. Nonaktifkan paket sebagai gantinya.',
+            ], 409);
+        }
+
+        $plan->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Paket langganan berhasil dihapus',
+        ]);
+    }
+
+    /**
      * Get bidan applications (Admin)
      * GET /api/admin/bidan-applications
      */
@@ -226,6 +288,10 @@ class AdminBidanController extends Controller
      */
     public function rejectApplication(Request $request, int $id): JsonResponse
     {
+        if (!$request->filled('reason') && $request->filled('rejection_reason')) {
+            $request->merge(['reason' => $request->input('rejection_reason')]);
+        }
+
         $validator = Validator::make($request->all(), [
             'reason' => 'required|string|max:500',
         ], [
