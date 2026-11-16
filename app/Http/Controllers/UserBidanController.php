@@ -402,9 +402,15 @@ class UserBidanController extends Controller
                 'data' => [
                     'appointment_id' => $appointment->appointment_id,
                     'status' => $appointment->status,
+                    'bidan_id' => (int) $appointment->bidan_id,
+                    'bidan_location_id' => $appointment->bidan_location_id,
                     'bidan_name' => $bidan->name,
                     'preferred_date' => $appointment->preferred_date,
+                    'preferred_time' => $appointment->preferred_time ?? '09:00',
+                    'notes' => $appointment->notes,
+                    'consultation_type' => $appointment->consultation_type ?? 'consultation',
                     'consent_id' => $consent->consent_id,
+                    'created_at' => $appointment->created_at?->toIso8601String(),
                 ],
             ], 201);
 
