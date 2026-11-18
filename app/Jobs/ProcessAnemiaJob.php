@@ -50,6 +50,7 @@ class ProcessAnemiaJob implements ShouldQueue
             'status'     => 'processing',
             'progress'   => 40,
             'job_id'     => $this->jobId,
+            'type'       => 'anemia',
             'message'    => 'Menghubungi layanan DL Anemia MobileNetV2 untuk ekstraksi ROI...',
             'updated_at' => now()->toIso8601String(),
         ], now()->addHours(24));
@@ -69,12 +70,13 @@ class ProcessAnemiaJob implements ShouldQueue
         $mlUrl = rtrim($rawUrl, '/') . '/predict';
 
         try {
-            // Update progress di Redis Cache: 70%
+            // Update progress di Redis Cache: 75%
             Cache::put("ai_job:{$this->jobId}", [
                 'status'     => 'processing',
-                'progress'   => 70,
+                'progress'   => 75,
                 'job_id'     => $this->jobId,
-                'message'    => 'Menganalisis tingkat kepucatan konjungtiva mata...',
+                'type'       => 'anemia',
+                'message'    => 'Menganalisis tingkat kepucatan konjungtiva mata dan memperbarui triase CDSS...',
                 'updated_at' => now()->toIso8601String(),
             ], now()->addHours(24));
 
@@ -141,6 +143,7 @@ class ProcessAnemiaJob implements ShouldQueue
                 'status'       => 'completed',
                 'progress'     => 100,
                 'job_id'       => $this->jobId,
+                'type'         => 'anemia',
                 'message'      => 'Inferensi selesai.',
                 'data'         => $mlResult,
                 'history'      => $historyEntry ? [
@@ -178,6 +181,7 @@ class ProcessAnemiaJob implements ShouldQueue
             'status'    => 'failed',
             'progress'  => 0,
             'job_id'    => $this->jobId,
+            'type'      => 'anemia',
             'error'     => $error,
             'failed_at' => now()->toIso8601String(),
         ], now()->addHours(24));

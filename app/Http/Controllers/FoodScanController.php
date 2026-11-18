@@ -7,13 +7,16 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use App\Models\FoodScan;
 use App\Models\Wallet;
 use App\Models\Pregnancy;
 use App\Models\ActivityLog;
 use App\Services\ActivityLogService;
 use App\Services\MaternalTriageService;
+use App\Jobs\ProcessFoodNutritionJob;
 
 class FoodScanController extends Controller
 {
@@ -264,5 +267,73 @@ class FoodScanController extends Controller
             'status' => 'success',
             'data'   => $scan,
         ]);
+    }
+
+    /**
+     * Endpoint Asinkron: Mengunggah citra piring makan, menjadwalkan ke Redis Queue,
+     * dan langsung mengembalikan job_id secara non-blocking (< 150ms).
+     * POST /api/v2/food-scan/async
+     */
+    public function scanAsync(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'image' => 'required|file|mimes:jpg,jpeg,png,webp,bmp|max:10240',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Validasi gagal: Harap upload citra piring makanan yang valid (JPG/PNG, maks 10MB).',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        $file = $request->file('image');
+        $jobId = (string) Str::uuid();
+
+        // Simpan foto piring makan secara public jika dimungkinkan
+        $publicImagePath = null;
+        try {
+            $publicImagePath = $file->store('food_scans', 'public');
+        } catch (\Exception $e) {
+            Log::warning("Gagal menyimpan salinan publik foto piring: " . $e->getMessage());
+        }
+
+        // Simpan file sementara di storage lokal untuk worker
+        $ext = $file->getClientOriginalExtension() ?: 'jpg';
+        $fileName = "{$jobId}.{$ext}";
+        $relPath = $file->storeAs('temp_uploads/food_nutrition', $fileName, 'local');
+        $fullPath = Storage::disk('local')->path($relPath);
+
+        // Inisialisasi status pekerjaan awal di Redis Cache (TTL: 24 jam)
+        Cache::put("ai_job:{$jobId}", [
+            'status'      => 'processing',
+            'progress'    => 15,
+            'job_id'      => $jobId,
+            'type'        => 'food_nutrition',
+            'message'     => 'Citra piring makanan diterima dan dijadwalkan ke antrean Redis AI.',
+            'created_at'  => now()->toIso8601String(),
+        ], now()->addHours(24));
+
+        // Ambil ID user jika terotentikasi
+        $user = auth('api')->user() ?: $request->user();
+        $userId = $user ? ($user->user_id ?? $user->id) : null;
+
+        // Dispatch background job ke Redis Queue
+        ProcessFoodNutritionJob::dispatch(
+            $jobId,
+            $userId,
+            $fullPath,
+            $file->getClientOriginalName() ?: $fileName,
+            $publicImagePath
+        );
+
+        return response()->json([
+            'status'      => 'processing',
+            'job_id'      => $jobId,
+            'type'        => 'food_nutrition',
+            'message'     => 'Analisis nutrisi piring makanan sedang diproses di antrean AI latar belakang.',
+            'polling_url' => "/api/v2/jobs/{$jobId}/status",
+        ], 202);
     }
 }

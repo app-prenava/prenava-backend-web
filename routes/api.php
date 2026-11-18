@@ -347,6 +347,7 @@ Route::prefix('v1/food-scanner')->group(function () {
 // ============================================
 Route::prefix('v2')->group(function () {
     Route::post('/anemia-scan/async', [App\Http\Controllers\AnemiaScanController::class, 'scanAsync']);
+    Route::post('/food-scan/async', [App\Http\Controllers\FoodScanController::class, 'scanAsync']);
     Route::get('/jobs/{jobId}/status', [App\Http\Controllers\AnemiaScanController::class, 'checkJobStatus']);
 });
 

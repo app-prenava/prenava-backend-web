@@ -149,6 +149,7 @@ class AnemiaScanController extends Controller
             'status'      => 'processing',
             'progress'    => 15,
             'job_id'      => $jobId,
+            'type'        => 'anemia',
             'message'     => 'Citra diterima dan dijadwalkan ke antrean Redis AI.',
             'created_at'  => now()->toIso8601String(),
         ], now()->addHours(24));
@@ -168,6 +169,7 @@ class AnemiaScanController extends Controller
         return response()->json([
             'status'      => 'processing',
             'job_id'      => $jobId,
+            'type'        => 'anemia',
             'message'     => 'Pemeriksaan anemia sedang diproses di antrean AI latar belakang.',
             'polling_url' => "/api/v2/jobs/{$jobId}/status",
         ], 202);
