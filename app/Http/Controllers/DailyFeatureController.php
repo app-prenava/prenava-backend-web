@@ -94,26 +94,43 @@ class DailyFeatureController extends Controller
 
     /**
      * Analytics: feature usage summary (for Tugas Akhir research).
-     * Returns how many times each feature was accessed across all users,
-     * grouped by task_type and date range.
+     * Returns how many times each feature was accessed across users,
+     * optionally filtered by user category, plus per-category breakdown.
      */
     public function featureAnalytics(Request $request)
     {
-        $days = (int) $request->query('days', 30);
-        $from = Carbon::now()->subDays($days)->toDateString();
+        $days     = (int) $request->query('days', 30);
+        $category = $request->query('category');
+        $from     = Carbon::now()->subDays($days)->toDateString();
 
-        $analytics = UserTaskLog::join('daily_tasks', 'daily_tasks.id', '=', 'user_task_logs.daily_task_id')
+        $query = UserTaskLog::join('daily_tasks', 'daily_tasks.id', '=', 'user_task_logs.daily_task_id')
+            ->join('users', 'users.user_id', '=', 'user_task_logs.user_id')
             ->where('daily_tasks.task_type', 'like', 'feature_%')
-            ->where('user_task_logs.completed_date', '>=', $from)
+            ->where('user_task_logs.completed_date', '>=', $from);
+
+        if ($category) {
+            $query->where('users.category', $category);
+        }
+
+        $analytics = (clone $query)
             ->selectRaw('daily_tasks.task_type, daily_tasks.title, COUNT(*) as total_access, COUNT(DISTINCT user_task_logs.user_id) as unique_users')
             ->groupBy('daily_tasks.task_type', 'daily_tasks.title')
             ->orderByDesc('total_access')
             ->get();
 
+        $byCategory = (clone $query)
+            ->selectRaw("COALESCE(users.category, 'umum') as category, daily_tasks.task_type, daily_tasks.title, COUNT(*) as total_access, COUNT(DISTINCT user_task_logs.user_id) as unique_users")
+            ->groupBy('users.category', 'daily_tasks.task_type', 'daily_tasks.title')
+            ->orderBy('category')
+            ->orderByDesc('total_access')
+            ->get();
+
         return response()->json([
-            'period_days' => $days,
-            'from'        => $from,
-            'features'    => $analytics,
+            'period_days'     => $days,
+            'from'            => $from,
+            'filter_category' => $category,
+            'features'        => $analytics,
+            'by_category'     => $byCategory,
         ]);
     }
 

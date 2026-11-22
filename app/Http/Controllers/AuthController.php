@@ -177,12 +177,19 @@ class AuthController extends Controller
             return response()->json(['status'=>'error','message'=>'Account is deactivated. Contact admin.'], 403);
         }
 
-        if ($user->auth_provider === 'email' && !$user->email_verified_at) {
+        $emailVerificationEnabled = filter_var(env('EMAIL_VERIFICATION_ENABLED', false), FILTER_VALIDATE_BOOLEAN);
+
+        if ($emailVerificationEnabled && $user->auth_provider === 'email' && !$user->email_verified_at) {
             return response()->json([
                 'status'                => 'error',
                 'message'               => 'Email belum diverifikasi. Silakan cek email untuk kode OTP.',
                 'requires_verification' => true,
             ], 403);
+        }
+
+        if (!$emailVerificationEnabled && !$user->email_verified_at) {
+            $user->email_verified_at = now();
+            $user->save();
         }
 
         if (!auth('api')->attempt($cred)) {
@@ -204,10 +211,11 @@ class AuthController extends Controller
         return response()->json([
             'status' => 'success',
             'user'   => [
-                'user_id' => $user->user_id,
-                'name'    => $user->name,
-                'email'   => $user->email,
-                'role'    => $user->role,
+                'user_id'  => $user->user_id,
+                'name'     => $user->name,
+                'email'    => $user->email,
+                'role'     => $user->role,
+                'category' => $user->category,
             ],
             'authorization' => [
                 'token'      => $token,
@@ -326,7 +334,7 @@ class AuthController extends Controller
     public function refresh(Request $request): JsonResponse
     {
         [$uid, $role, $payload] = \App\Support\AuthToken::ensureActiveAndFreshOrFail($request);
-        $user = User::select('user_id','name','email','role','token_version')->find($uid);
+        $user = User::select('user_id','name','email','role','category','token_version')->find($uid);
         $token = $this->issueToken($user);
 
         $ttlMap = config('auth_tokens.ttl_seconds');
@@ -335,10 +343,11 @@ class AuthController extends Controller
         return response()->json([
             'status' => 'success',
             'user'   => [
-                'user_id' => $user->user_id,
-                'name'    => $user->name,
-                'email'   => $user->email,
-                'role'    => $user->role,
+                'user_id'  => $user->user_id,
+                'name'     => $user->name,
+                'email'    => $user->email,
+                'role'     => $user->role,
+                'category' => $user->category,
             ],
             'authorization' => [
                 'token'      => $token,
@@ -351,7 +360,7 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         [$uid, $role] = \App\Support\AuthToken::ensureActiveAndFreshOrFail($request);
-        $user = User::select('user_id','name','email','role')->find($uid);
+        $user = User::select('user_id','name','email','role','category')->find($uid);
 
         return response()->json($user);
     }

@@ -52,10 +52,11 @@ class DatabaseSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'hamil@prenava.com'],
             [
-                'name'      => 'User Hamil',
-                'password'  => Hash::make('password123'),
-                'role'      => 'ibu_hamil',
-                'is_active' => true,
+                'name'              => 'User Hamil',
+                'password'          => Hash::make('password123'),
+                'role'              => 'ibu_hamil',
+                'is_active'         => true,
+                'email_verified_at' => $now,
             ]
         );
 
@@ -119,6 +120,9 @@ class DatabaseSeeder extends Seeder
             KomunitasLikeSeeder::class,
             PregnancyTipsSeeder::class,
             SubscriptionPlanSeeder::class,
+            ScreeningQuestionSeeder::class,
+            ScreeningCategorySeeder::class,
+            DailyTaskSeeder::class,
         ]);
     }
 }

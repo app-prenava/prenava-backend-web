@@ -247,4 +247,12 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->hasMany(DeteksiPenyakit::class, 'user_id', 'user_id');
     }
+
+    /**
+     * Get user personalization screening sessions
+     */
+    public function screeningSessions(): HasMany
+    {
+        return $this->hasMany(UserScreeningSession::class, 'user_id', 'user_id');
+    }
 }

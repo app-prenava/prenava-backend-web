@@ -51,6 +51,7 @@ use App\Http\Controllers\AdminBidanController;
 use App\Http\Controllers\BidanDashboardController;
 use App\Http\Controllers\UserBidanController;
 use App\Http\Controllers\InsentifController;
+use App\Http\Controllers\ScreeningController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -419,4 +420,10 @@ Route::prefix('user')->middleware(['auth:api'])->group(function () {
 
     // Meal Plan (AI Generated)
     Route::post('/meal-plan/generate', [MealPlanController::class, 'generateMealPlan']);
+
+    // Personalization Screening
+    Route::get('/screening/questions', [ScreeningController::class, 'questions']);
+    Route::post('/screening/submit', [ScreeningController::class, 'submit']);
+    Route::get('/screening/latest', [ScreeningController::class, 'latest']);
+    Route::get('/screening/history', [ScreeningController::class, 'history']);
 });
