@@ -33,13 +33,14 @@ class AdminAccountController extends Controller
         }
 
         $userId = DB::table('users')->insertGetId([
-            'name'       => $request->name,
-            'email'      => $request->email,
-            'password'   => Hash::make($request->password),
-            'role'       => 'bidan',
-            'is_active'  => true,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'name'              => $request->name,
+            'email'             => $request->email,
+            'password'          => Hash::make($request->password),
+            'role'              => 'bidan',
+            'is_active'         => true,
+            'email_verified_at' => now(),
+            'created_at'        => now(),
+            'updated_at'        => now(),
         ], 'user_id');
 
         return response()->json([
@@ -60,9 +61,16 @@ class AdminAccountController extends Controller
         $this->assertAdmin($request);
 
         $v = Validator::make($request->all(), [
-            'name'     => ['required','string','max:255'],
-            'email'    => ['required','string','email','max:255','unique:users,email'],
-            'password' => ['required','string','min:6'],
+            'name'          => ['required','string','max:255'],
+            'email'         => ['required','string','email','max:255','unique:users,email'],
+            'password'      => ['required','string','min:6'],
+            'province_code' => ['required','string','exists:provinces,code'],
+            'regency_code'  => ['required','string','exists:regencies,code'],
+            'jabatan'       => ['nullable','string','max:255'],
+            'nip'           => ['nullable','string','max:64'],
+        ], [
+            'province_code.required' => 'Provinsi wajib dipilih untuk akun Dinkes.',
+            'regency_code.required'  => 'Kabupaten/Kota wajib dipilih untuk akun Dinkes.',
         ]);
         if ($v->fails()) {
             return response()->json([
@@ -72,25 +80,59 @@ class AdminAccountController extends Controller
             ], 422);
         }
 
-        $userId = DB::table('users')->insertGetId([
-            'name'       => $request->name,
-            'email'      => $request->email,
-            'password'   => Hash::make($request->password),
-            'role'       => 'dinkes',
-            'is_active'  => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ], 'user_id');
+        $regency = DB::table('regencies')
+            ->where('code', $request->regency_code)
+            ->where('province_code', $request->province_code)
+            ->first();
+
+        if (!$regency) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Kabupaten/Kota tidak sesuai dengan Provinsi yang dipilih.',
+            ], 422);
+        }
+
+        $province = DB::table('provinces')->where('code', $request->province_code)->first();
+
+        $userId = DB::transaction(function () use ($request) {
+            $uid = DB::table('users')->insertGetId([
+                'name'              => $request->name,
+                'email'             => $request->email,
+                'password'          => Hash::make($request->password),
+                'role'              => 'dinkes',
+                'is_active'         => true,
+                'email_verified_at' => now(),
+                'created_at'        => now(),
+                'updated_at'        => now(),
+            ], 'user_id');
+
+            DB::table('user_dinkes')->insert([
+                'user_id'       => $uid,
+                'photo'         => '',
+                'jabatan'       => $request->jabatan,
+                'nip'           => $request->nip,
+                'province_code' => $request->province_code,
+                'regency_code'  => $request->regency_code,
+                'created_at'    => now(),
+                'updated_at'    => now(),
+            ]);
+
+            return $uid;
+        });
 
         return response()->json([
             'status'  => 'success',
             'message' => 'Akun dinkes berhasil dibuat',
             'data'    => [
-                'user_id' => $userId,
-                'name'    => $request->name,
-                'email'   => $request->email,
-                'role'    => 'dinkes',
-                'is_active' => true,
+                'user_id'       => $userId,
+                'name'          => $request->name,
+                'email'         => $request->email,
+                'role'          => 'dinkes',
+                'is_active'     => true,
+                'province_code' => $request->province_code,
+                'province_name' => $province?->name,
+                'regency_code'  => $request->regency_code,
+                'regency_name'  => $regency->name,
             ],
         ], 201);
     }
@@ -211,6 +253,10 @@ class AdminAccountController extends Controller
         $filterRole = $request->query('role');
 
         $query = DB::table('users')
+            ->leftJoin('user_dinkes', 'user_dinkes.user_id', '=', 'users.user_id')
+            ->leftJoin('regencies', 'regencies.code', '=', 'user_dinkes.regency_code')
+            ->leftJoin('provinces', 'provinces.code', '=', 'user_dinkes.province_code')
+            ->leftJoin('bidan_profile', 'bidan_profile.user_id', '=', 'users.user_id')
             ->select([
                 'users.user_id', 
                 'users.name', 
@@ -219,6 +265,20 @@ class AdminAccountController extends Controller
                 'users.is_active', 
                 'users.created_at', 
                 'users.updated_at',
+                'user_dinkes.province_code',
+                'provinces.name as province_name',
+                'user_dinkes.regency_code',
+                'regencies.name as regency_name',
+                'bidan_profile.tempat_praktik',
+                'bidan_profile.alamat_praktik',
+                'bidan_profile.provinsi_tempat_praktik',
+                'bidan_profile.kota_tempat_praktik',
+                'bidan_profile.kecamatan_tempat_praktik',
+                'bidan_profile.telepon_tempat_praktik',
+                'bidan_profile.spesialisasi',
+                'bidan_profile.str_number',
+                'bidan_profile.sip_number',
+                'bidan_profile.photo as bidan_photo',
                 // Subquery untuk mengambil aktivitas terakhir
                 DB::raw('(SELECT activity_label FROM activity_logs WHERE activity_logs.user_id = users.user_id ORDER BY created_at DESC LIMIT 1) as last_activity_label'),
                 DB::raw('(SELECT activity_label FROM activity_logs WHERE activity_logs.user_id = users.user_id ORDER BY created_at DESC LIMIT 1) as last_activity'),
@@ -248,6 +308,55 @@ class AdminAccountController extends Controller
                 ? "All users with role '{$filterRole}' retrieved successfully."
                 : 'All users retrieved successfully.',
             'data' => $users,
+        ]);
+    }
+
+    public function getBidanProfile(Request $request, int $userId): JsonResponse
+    {
+        $this->assertAdmin($request);
+
+        $profile = DB::table('bidan_profile')
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$profile) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Profil bidan tidak ditemukan.',
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $profile,
+        ]);
+    }
+
+    public function getDinkesProfile(Request $request, int $userId): JsonResponse
+    {
+        $this->assertAdmin($request);
+
+        $profile = DB::table('user_dinkes')
+            ->leftJoin('provinces', 'provinces.code', '=', 'user_dinkes.province_code')
+            ->leftJoin('regencies', 'regencies.code', '=', 'user_dinkes.regency_code')
+            ->where('user_dinkes.user_id', $userId)
+            ->select([
+                'user_dinkes.*',
+                'provinces.name as province_name',
+                'regencies.name as regency_name',
+            ])
+            ->first();
+
+        if (!$profile) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Profil dinkes tidak ditemukan.',
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $profile,
         ]);
     }
 
@@ -293,23 +402,50 @@ class AdminAccountController extends Controller
         $userIds = $query->pluck('users.user_id')->toArray();
 
         // Ambil data history secara bulk (untuk menghindari N+1 query problem)
-        $anemiaHistory = DB::table('deteksi_penyakit')
-            ->whereIn('user_id', $userIds)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->groupBy('user_id');
+        $anemiaHistory = collect();
+        $depressionHistory = collect();
+        $stuntingHistory = collect();
 
-        $depressionHistory = DB::table('prediksi_depresi')
-            ->whereIn('user_id', $userIds)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->groupBy('user_id');
-            
-        $stuntingHistory = DB::table('stunting_predictions')
-            ->whereIn('user_id', $userIds)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->groupBy('user_id');
+        if (!empty($userIds)) {
+            if (\Illuminate\Support\Facades\Schema::hasTable('health_scan_histories')) {
+                $anemiaHistory = DB::table('health_scan_histories')
+                    ->whereIn('user_id', $userIds)
+                    ->where('type', 'anemia')
+                    ->orderBy('created_at', 'desc')
+                    ->get()
+                    ->groupBy('user_id');
+
+                $depressionHistory = DB::table('health_scan_histories')
+                    ->whereIn('user_id', $userIds)
+                    ->where('type', 'depression')
+                    ->orderBy('created_at', 'desc')
+                    ->get()
+                    ->groupBy('user_id');
+            } else {
+                if (\Illuminate\Support\Facades\Schema::hasTable('deteksi_penyakit')) {
+                    $anemiaHistory = DB::table('deteksi_penyakit')
+                        ->whereIn('user_id', $userIds)
+                        ->orderBy('created_at', 'desc')
+                        ->get()
+                        ->groupBy('user_id');
+                }
+                if (\Illuminate\Support\Facades\Schema::hasTable('prediksi_depresi')) {
+                    $depressionHistory = DB::table('prediksi_depresi')
+                        ->whereIn('user_id', $userIds)
+                        ->orderBy('created_at', 'desc')
+                        ->get()
+                        ->groupBy('user_id');
+                }
+            }
+
+            if (\Illuminate\Support\Facades\Schema::hasTable('stunting_predictions')) {
+                $stuntingHistory = DB::table('stunting_predictions')
+                    ->whereIn('user_id', $userIds)
+                    ->orderBy('created_at', 'desc')
+                    ->get()
+                    ->groupBy('user_id');
+            }
+        }
 
         $ibuHamil = $query->get()->map(function ($row) use ($anemiaHistory, $depressionHistory, $stuntingHistory) {
             $row->photo_url = \App\Helpers\PhotoHelper::transformPhotoUrl($row->photo, 'public');

@@ -112,6 +112,14 @@ class User extends Authenticatable implements JWTSubject
     }
 
     /**
+     * Get dinkes profile
+     */
+    public function userDinkes(): HasOne
+    {
+        return $this->hasOne(UserDinkes::class, 'user_id', 'user_id');
+    }
+
+    /**
      * Get bidan's active subscription
      */
     public function bidanSubscription(): HasOne

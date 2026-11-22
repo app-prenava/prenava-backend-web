@@ -12,6 +12,9 @@ use Tymon\JWTAuth\Exceptions\TokenInvalidException;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use App\Support\AuthToken;
 use App\Models\ActivityLog;
+use App\Models\District;
+use App\Models\Province;
+use App\Models\Regency;
 use App\Services\ActivityLogService;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
@@ -217,8 +220,13 @@ class AddProfileController extends Controller
             'golongan_darah'      => ['nullable','string','max:3'],
             'status_kandungan'    => ['nullable','string','max:255'],
             'provinsi'            => ['nullable','string','max:255'],
+            'province_code'       => ['nullable','string','exists:provinces,code'],
             'kota'                => ['nullable','string','max:255'],
+            'regency_code'        => ['nullable','string','exists:regencies,code'],
             'kecamatan'           => ['nullable','string','max:255'],
+            'district_code'       => ['nullable','string','exists:districts,code'],
+            'lat'                 => ['nullable','numeric','between:-90,90'],
+            'lng'                 => ['nullable','numeric','between:-180,180'],
             'pendapatan_keluarga' => ['nullable','string','max:255'],
             'photo'               => ['sometimes','file','image','mimes:jpg,jpeg,png,webp','max:500'],
         ], [
@@ -237,6 +245,23 @@ class AddProfileController extends Controller
             $path = $req->file('photo')->store('profiles/ibu', 'public');
         }
 
+        // Resolve canonical region names from master tables if codes are provided
+        $provinsiName = $req->provinsi;
+        $kotaName = $req->kota;
+        $kecamatanName = $req->kecamatan;
+
+        if ($req->filled('province_code')) {
+            $provinsiName = Province::where('code', $req->province_code)->value('name') ?? $provinsiName;
+        }
+        if ($req->filled('regency_code')) {
+            $kotaName = Regency::where('code', $req->regency_code)->value('name') ?? $kotaName;
+        }
+        if ($req->filled('district_code')) {
+            $kecamatanName = District::where('code', $req->district_code)->value('name') ?? $kecamatanName;
+        }
+
+        $hasCoords = $req->filled('lat') && $req->filled('lng');
+
         try {
             $insertData = [
                 'user_id'             => $uid,
@@ -248,9 +273,15 @@ class AddProfileController extends Controller
                 'pekerjaan'           => $req->pekerjaan,
                 'golongan_darah'      => $req->golongan_darah,
                 'status_kandungan'    => $req->status_kandungan,
-                'provinsi'            => $req->provinsi,
-                'kota'                => $req->kota,
-                'kecamatan'           => $req->kecamatan,
+                'provinsi'            => $provinsiName,
+                'province_code'       => $req->province_code,
+                'kota'                => $kotaName,
+                'regency_code'        => $req->regency_code,
+                'kecamatan'           => $kecamatanName,
+                'district_code'       => $req->district_code,
+                'lat'                 => $hasCoords ? (float) $req->lat : null,
+                'lng'                 => $hasCoords ? (float) $req->lng : null,
+                'location_updated_at' => $hasCoords ? now() : null,
                 'pendapatan_keluarga' => $req->pendapatan_keluarga,
                 'photo'               => $path ?? '',
                 'created_at'          => now(),
@@ -284,9 +315,14 @@ class AddProfileController extends Controller
                 'pekerjaan'           => $req->pekerjaan,
                 'golongan_darah'      => $req->golongan_darah,
                 'status_kandungan'    => $req->status_kandungan,
-                'provinsi'            => $req->provinsi,
-                'kota'                => $req->kota,
-                'kecamatan'           => $req->kecamatan,
+                'provinsi'            => $provinsiName,
+                'province_code'       => $req->province_code,
+                'kota'                => $kotaName,
+                'regency_code'        => $req->regency_code,
+                'kecamatan'           => $kecamatanName,
+                'district_code'       => $req->district_code,
+                'lat'                 => $hasCoords ? (float) $req->lat : null,
+                'lng'                 => $hasCoords ? (float) $req->lng : null,
                 'pendapatan_keluarga' => $req->pendapatan_keluarga,
                 'photo'               => $photoUrl,
             ],
@@ -408,8 +444,13 @@ class AddProfileController extends Controller
             'golongan_darah'      => ['nullable','string','max:3'],
             'status_kandungan'    => ['nullable','string','max:255'],
             'provinsi'            => ['nullable','string','max:255'],
+            'province_code'       => ['nullable','string','exists:provinces,code'],
             'kota'                => ['nullable','string','max:255'],
+            'regency_code'        => ['nullable','string','exists:regencies,code'],
             'kecamatan'           => ['nullable','string','max:255'],
+            'district_code'       => ['nullable','string','exists:districts,code'],
+            'lat'                 => ['nullable','numeric','between:-90,90'],
+            'lng'                 => ['nullable','numeric','between:-180,180'],
             'pendapatan_keluarga' => ['nullable','string','max:255'],
             'photo'               => ['sometimes','file','image','mimes:jpg,jpeg,png,webp','max:500'],
         ], [
@@ -425,8 +466,27 @@ class AddProfileController extends Controller
         $data = $this->onlyNotNull($req->only([
             'tanggal_lahir','usia','alamat','no_telepon',
             'pendidikan_terakhir','pekerjaan','golongan_darah',
-            'status_kandungan','provinsi','kota','kecamatan','pendapatan_keluarga'
+            'status_kandungan','provinsi','province_code','kota','regency_code',
+            'kecamatan','district_code','lat','lng','pendapatan_keluarga'
         ]));
+
+        if ($req->filled('province_code')) {
+            $name = Province::where('code', $req->province_code)->value('name');
+            if ($name) $data['provinsi'] = $name;
+        }
+        if ($req->filled('regency_code')) {
+            $name = Regency::where('code', $req->regency_code)->value('name');
+            if ($name) $data['kota'] = $name;
+        }
+        if ($req->filled('district_code')) {
+            $name = District::where('code', $req->district_code)->value('name');
+            if ($name) $data['kecamatan'] = $name;
+        }
+        if ($req->filled('lat') && $req->filled('lng')) {
+            $data['lat'] = (float) $req->lat;
+            $data['lng'] = (float) $req->lng;
+            $data['location_updated_at'] = now();
+        }
 
         if ($req->hasFile('photo')) {
             $newPath = $req->file('photo')->store('profiles/ibu', 'public');
@@ -477,7 +537,14 @@ class AddProfileController extends Controller
 
             case 'dinkes':
                 $profile = DB::table('user_dinkes')
-                    ->where('user_id', $uid)
+                    ->leftJoin('provinces', 'provinces.code', '=', 'user_dinkes.province_code')
+                    ->leftJoin('regencies', 'regencies.code', '=', 'user_dinkes.regency_code')
+                    ->where('user_dinkes.user_id', $uid)
+                    ->select([
+                        'user_dinkes.*',
+                        'provinces.name as province_name',
+                        'regencies.name as regency_name',
+                    ])
                     ->first();
                 break;
         }

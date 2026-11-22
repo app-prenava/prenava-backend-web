@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\SubscriptionPlan;
 use App\Models\BidanApplication;
+use App\Models\BidanProfile;
 use App\Models\BidanSubscription;
 use App\Models\BidanLocation;
 use App\Models\User;
@@ -125,6 +126,25 @@ class AdminBidanController extends Controller
     }
 
     /**
+     * Format application payload consistently for admin frontend
+     */
+    protected function formatApplication(BidanApplication $app): array
+    {
+        $arr = $app->toArray();
+        $arr['id'] = $app->bidan_application_id;
+        $arr['nama'] = $app->full_name;
+        $arr['practice_address'] = $app->full_address;
+        $arr['plan_id'] = $app->subscription_plan_id;
+        $arr['plan'] = $app->relationLoaded('subscriptionPlan') ? $app->subscriptionPlan : null;
+        $arr['submitted_at'] = $app->created_at?->toIso8601String();
+        $arr['reviewed_at'] = ($app->approved_at ?? $app->rejected_at)?->toIso8601String();
+        $arr['province_name'] = $app->province;
+        $arr['regency_name'] = $app->city;
+        $arr['district_name'] = $app->district;
+        return $arr;
+    }
+
+    /**
      * Get bidan applications (Admin)
      * GET /api/admin/bidan-applications
      */
@@ -151,6 +171,7 @@ class AdminBidanController extends Controller
         // Pagination
         $perPage = $request->get('per_page', 15);
         $applications = $query->latest()->paginate($perPage);
+        $applications->getCollection()->transform(fn ($app) => $this->formatApplication($app));
 
         return response()->json([
             'status' => 'success',
@@ -176,7 +197,7 @@ class AdminBidanController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $application,
+            'data' => $this->formatApplication($application),
         ]);
     }
 
@@ -226,7 +247,8 @@ class AdminBidanController extends Controller
      */
     public function rejectApplication(Request $request, int $id): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $reason = $request->input('reason') ?? $request->input('rejection_reason');
+        $validator = Validator::make(['reason' => $reason], [
             'reason' => 'required|string|max:500',
         ], [
             'reason.required' => 'Alasan penolakan wajib diisi',
@@ -260,7 +282,7 @@ class AdminBidanController extends Controller
 
         $application->update([
             'status' => 'rejected',
-            'rejection_reason' => $request->reason,
+            'rejection_reason' => $reason,
             'approved_by_admin_id' => $adminId,
             'rejected_at' => now(),
         ]);
@@ -269,6 +291,7 @@ class AdminBidanController extends Controller
             'status' => 'success',
             'message' => 'Aplikasi berhasil ditolak',
             'data' => [
+                'id' => $application->bidan_application_id,
                 'application_id' => $application->bidan_application_id,
                 'status' => $application->status,
             ],
@@ -325,13 +348,14 @@ class AdminBidanController extends Controller
         try {
             DB::beginTransaction();
 
-            // Create user account
+            // Create user account (pre-verified since created by Admin from approved application)
             $user = User::create([
                 'name' => $application->full_name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'role' => 'bidan',
                 'is_active' => true,
+                'email_verified_at' => now(),
             ]);
 
             // Get plan for subscription duration
@@ -348,6 +372,41 @@ class AdminBidanController extends Controller
                 'amount_paid' => $plan->price,
             ]);
 
+            // Auto-create verified BidanProfile from approved application
+            BidanProfile::create([
+                'user_id' => $user->user_id,
+                'photo' => '',
+                'tempat_praktik' => $application->bidan_name,
+                'alamat_praktik' => $application->full_address,
+                'provinsi_tempat_praktik' => $application->province,
+                'province_code' => $application->province_code,
+                'kota_tempat_praktik' => $application->city,
+                'regency_code' => $application->regency_code,
+                'kecamatan_tempat_praktik' => $application->district,
+                'district_code' => $application->district_code,
+                'telepon_tempat_praktik' => $application->phone,
+                'spesialisasi' => $application->spesialisasi,
+                'str_number' => $application->str_number,
+                'sip_number' => $application->sip_number,
+                'is_verified_partner' => true,
+                'verified_at' => now(),
+            ]);
+
+            // Auto-create primary BidanLocation if application includes coordinates
+            $location = null;
+            if ($application->lat !== null && $application->lng !== null) {
+                $location = BidanLocation::create([
+                    'bidan_id' => $user->user_id,
+                    'lat' => $application->lat,
+                    'lng' => $application->lng,
+                    'address_label' => $application->full_address,
+                    'phone_override' => $application->phone,
+                    'operating_hours' => $application->operating_hours,
+                    'is_active' => true,
+                    'is_primary' => true,
+                ]);
+            }
+
             DB::commit();
 
             return response()->json([
@@ -355,8 +414,11 @@ class AdminBidanController extends Controller
                 'message' => 'Akun bidan berhasil dibuat',
                 'data' => [
                     'user_id' => $user->user_id,
+                    'bidan_id' => $user->user_id,
                     'email' => $user->email,
                     'name' => $user->name,
+                    'has_location' => $location !== null,
+                    'location_id' => $location?->bidan_location_id,
                     'subscription' => [
                         'id' => $subscription->bidan_subscription_id,
                         'plan' => $plan->name,
@@ -530,7 +592,7 @@ class AdminBidanController extends Controller
      */
     public function getBidanLocations(Request $request): JsonResponse
     {
-        $query = BidanLocation::with('bidan');
+        $query = BidanLocation::with(['bidan.bidanProfile']);
 
         if ($request->has('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
@@ -540,8 +602,22 @@ class AdminBidanController extends Controller
             $query->where('bidan_id', $request->bidan_id);
         }
 
-        $perPage = $request->get('per_page', 15);
+        $perPage = $request->get('per_page', 50);
         $locations = $query->latest()->paginate($perPage);
+
+        $locations->getCollection()->transform(function ($loc) {
+            $arr = $loc->toArray();
+            $arr['id'] = $loc->bidan_location_id;
+            $arr['lat'] = (float) $loc->lat;
+            $arr['lng'] = (float) $loc->lng;
+            $arr['latitude'] = (float) $loc->lat;
+            $arr['longitude'] = (float) $loc->lng;
+            if ($loc->bidan) {
+                $arr['bidan']['id'] = $loc->bidan->user_id;
+                $arr['bidan']['bidan_name'] = $loc->bidan->bidanProfile?->tempat_praktik ?: $loc->bidan->name;
+            }
+            return $arr;
+        });
 
         return response()->json([
             'status' => 'success',

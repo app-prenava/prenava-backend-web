@@ -22,11 +22,25 @@ class UserProfile extends Model
         'pendidikan_terakhir',
         'pekerjaan',
         'golongan_darah',
+        'status_kandungan',
+        'provinsi',
+        'province_code',
+        'kota',
+        'regency_code',
+        'kecamatan',
+        'district_code',
+        'pendapatan_keluarga',
+        'lat',
+        'lng',
+        'location_updated_at',
     ];
 
     protected $casts = [
         'tanggal_lahir' => 'date',
         'usia' => 'integer',
+        'lat' => 'float',
+        'lng' => 'float',
+        'location_updated_at' => 'datetime',
     ];
 
     /**

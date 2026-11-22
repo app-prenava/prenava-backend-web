@@ -19,9 +19,17 @@ class BidanApplication extends Model
         'email',
         'phone',
         'bidan_name',
+        'spesialisasi',
         'full_address',
-        'city',
         'province',
+        'province_code',
+        'city',
+        'regency_code',
+        'district',
+        'district_code',
+        'lat',
+        'lng',
+        'operating_hours',
         'str_number',
         'sip_number',
         'document_url',
@@ -35,6 +43,9 @@ class BidanApplication extends Model
     protected $casts = [
         'approved_at' => 'datetime',
         'rejected_at' => 'datetime',
+        'lat' => 'float',
+        'lng' => 'float',
+        'operating_hours' => 'array',
     ];
 
     const STATUS_PENDING = 'pending';

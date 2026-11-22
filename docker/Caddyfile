@@ -4,6 +4,7 @@
 
 :80 {
     root * /app/public
+    header /storage/* Access-Control-Allow-Origin *
     php_server
     file_server
 }

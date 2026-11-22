@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BidanApplication;
 use App\Models\BidanLocation;
+use App\Models\BidanSubscription;
 use App\Models\Appointment;
 use App\Models\AppointmentConsent;
 use App\Models\User;
 use App\Support\AuthToken;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Validator;
@@ -15,57 +18,137 @@ use Illuminate\Support\Facades\DB;
 class UserBidanController extends Controller
 {
     /**
-     * Get nearby bidan locations (for map)
+     * Scope query to only active, verified Prenava partner bidans
+     * (approved application with STR & SIP + active non-expired subscription)
+     */
+    protected function applyVerifiedPartnerFilter($userQuery): void
+    {
+        $today = Carbon::today()->toDateString();
+
+        $userQuery->where('is_active', true)
+            ->where('role', 'bidan')
+            ->whereHas('bidanSubscriptions', function ($sub) use ($today) {
+                $sub->where('status', BidanSubscription::STATUS_ACTIVE)
+                    ->whereDate('end_date', '>=', $today)
+                    ->whereHas('application', function ($app) {
+                        $app->where('status', BidanApplication::STATUS_APPROVED)
+                            ->whereNotNull('str_number')
+                            ->where('str_number', '!=', '')
+                            ->whereNotNull('sip_number')
+                            ->where('sip_number', '!=', '');
+                    });
+            });
+    }
+
+    /**
+     * Get nearby verified partner bidan locations
      * GET /api/user/bidans/locations
      */
     public function getLocations(Request $request): JsonResponse
     {
-        $query = BidanLocation::with(['bidan' => function ($q) {
-            $q->select('user_id', 'name', 'email')
-              ->where('is_active', true)
-              ->where('role', 'bidan');
-        }])->where('is_active', true);
+        $query = BidanLocation::with([
+            'bidan' => function ($q) {
+                $q->select('user_id', 'name', 'email', 'is_active', 'role')
+                  ->with([
+                      'bidanProfile',
+                      'bidanSubscription.application',
+                  ]);
+            },
+        ])
+            ->where('is_active', true)
+            ->whereHas('bidan', function ($q) {
+                $this->applyVerifiedPartnerFilter($q);
+            });
 
-        // Filter by radius if coordinates provided
-        if ($request->has('lat') && $request->has('lng')) {
-            $lat = (float) $request->lat;
-            $lng = (float) $request->lng;
-            $radiusKm = (float) ($request->radius_km ?? 10); // default 10km
+        $hasCoords = $request->filled('lat') && $request->filled('lng');
+        $lat = $hasCoords ? (float) $request->lat : null;
+        $lng = $hasCoords ? (float) $request->lng : null;
+        $radiusKm = $request->filled('radius_km') ? (float) $request->radius_km : null;
 
+        // Apply bounding box pre-filter only when radius_km > 0
+        if ($hasCoords && $radiusKm !== null && $radiusKm > 0) {
             $query->withinRadius($lat, $lng, $radiusKm);
+        }
+
+        // Optional text search across bidan name, practice name, address, regency, district
+        if ($request->filled('search')) {
+            $search = trim((string) $request->search);
+            $query->where(function ($q) use ($search) {
+                $q->where('address_label', 'like', "%{$search}%")
+                    ->orWhereHas('bidan', function ($bq) use ($search) {
+                        $bq->where('name', 'like', "%{$search}%")
+                            ->orWhereHas('bidanProfile', function ($pq) use ($search) {
+                                $pq->where('tempat_praktik', 'like', "%{$search}%")
+                                    ->orWhere('alamat_praktik', 'like', "%{$search}%")
+                                    ->orWhere('kota_tempat_praktik', 'like', "%{$search}%")
+                                    ->orWhere('kecamatan_tempat_praktik', 'like', "%{$search}%");
+                            });
+                    });
+            });
         }
 
         $locations = $query->get();
 
-        // Calculate distance and format response
-        $result = $locations->map(function ($location) use ($request) {
+        // Format response with full clinic & verification metadata
+        $result = $locations->map(function ($location) use ($hasCoords, $lat, $lng) {
             /** @var \App\Models\BidanLocation $location */
+            $bidan = $location->bidan;
+            $profile = $bidan?->bidanProfile;
+            $application = $bidan?->bidanSubscription?->application;
+
+            $photoUrl = null;
+            if (!empty($profile?->photo)) {
+                $photoUrl = str_starts_with($profile->photo, 'http')
+                    ? $profile->photo
+                    : url('storage/' . ltrim($profile->photo, '/'));
+            }
+
             $data = [
+                'id' => $location->bidan_id,
                 'location_id' => $location->bidan_location_id,
                 'bidan_id' => $location->bidan_id,
-                'bidan_name' => $location->bidan?->name ?? 'Unknown',
+                'name' => $profile?->tempat_praktik ?: ($bidan?->name ?? 'Unknown'),
+                'bidan_name' => $bidan?->name ?? 'Unknown',
+                'tempat_praktik' => $profile?->tempat_praktik ?? $application?->bidan_name ?? $bidan?->name,
+                'specialization' => $profile?->spesialisasi ?? $application?->spesialisasi,
+                'spesialisasi' => $profile?->spesialisasi ?? $application?->spesialisasi,
+                'photo_url' => $photoUrl,
                 'lat' => (float) $location->lat,
                 'lng' => (float) $location->lng,
+                'latitude' => (float) $location->lat,
+                'longitude' => (float) $location->lng,
+                'address' => $location->address_label ?: ($profile?->alamat_praktik ?? ''),
                 'address_label' => $location->address_label,
-                'phone' => $location->effective_phone,
+                'alamat_praktik' => $profile?->alamat_praktik ?? $location->address_label,
+                'province_code' => $profile?->province_code ?? $application?->province_code,
+                'province_name' => $profile?->provinsi_tempat_praktik ?? $application?->province,
+                'regency_code' => $profile?->regency_code ?? $application?->regency_code,
+                'regency_name' => $profile?->kota_tempat_praktik ?? $application?->city,
+                'district_code' => $profile?->district_code ?? $application?->district_code,
+                'district_name' => $profile?->kecamatan_tempat_praktik ?? $application?->district,
+                'phone' => $location->effective_phone ?? $application?->phone ?? '',
                 'notes' => $location->notes,
-                'operating_hours' => $location->operating_hours,
+                'operating_hours' => $location->operating_hours ?? $application?->operating_hours,
+                'str_number' => $profile?->str_number ?? $application?->str_number,
+                'sip_number' => $profile?->sip_number ?? $application?->sip_number,
+                'is_verified_partner' => true,
             ];
 
-            // Add distance if coordinates provided
-            if ($request->has('lat') && $request->has('lng')) {
-                $data['distance_km'] = $location->distanceFrom(
-                    (float) $request->lat,
-                    (float) $request->lng
-                );
+            if ($hasCoords) {
+                $data['distance_km'] = $location->distanceFrom($lat, $lng);
             }
 
             return $data;
         });
 
-        // Sort by distance if applicable
-        if ($request->has('lat') && $request->has('lng')) {
+        // Exact Haversine radius filter & sort by nearest distance
+        if ($hasCoords) {
+            if ($radiusKm !== null && $radiusKm > 0) {
+                $result = $result->filter(fn ($item) => $item['distance_km'] <= $radiusKm);
+            }
             $result = $result->sortBy('distance_km')->values();
+        } else {
+            $result = $result->values();
         }
 
         return response()->json([
@@ -75,45 +158,57 @@ class UserBidanController extends Controller
     }
 
     /**
-     * Get bidan detail
+     * Get verified partner bidan detail
      * GET /api/user/bidans/{id}
      */
     public function getBidanDetail(int $bidanId): JsonResponse
     {
-        $bidan = User::where('user_id', $bidanId)
-            ->where('role', 'bidan')
-            ->where('is_active', true)
-            ->first();
+        $bidanQuery = User::where('user_id', $bidanId)
+            ->with(['bidanProfile', 'bidanSubscription.application']);
+        $this->applyVerifiedPartnerFilter($bidanQuery);
+        $bidan = $bidanQuery->first();
 
         if (!$bidan) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Bidan tidak ditemukan',
+                'message' => 'Bidan mitra terverifikasi tidak ditemukan',
             ], 404);
         }
 
-        // Get bidan's locations
+        // Get bidan's active locations
         $locations = BidanLocation::where('bidan_id', $bidanId)
             ->where('is_active', true)
             ->get();
 
-        // Get bidan profile if exists
         $profile = $bidan->bidanProfile;
+        $application = $bidan->bidanSubscription?->application;
+
+        $photoUrl = null;
+        if (!empty($profile?->photo)) {
+            $photoUrl = str_starts_with($profile->photo, 'http')
+                ? $profile->photo
+                : url('storage/' . ltrim($profile->photo, '/'));
+        }
 
         return response()->json([
             'status' => 'success',
             'data' => [
                 'bidan_id' => $bidan->user_id,
                 'name' => $bidan->name,
+                'is_verified_partner' => true,
+                'str_number' => $profile?->str_number ?? $application?->str_number,
+                'sip_number' => $profile?->sip_number ?? $application?->sip_number,
                 'profile' => $profile ? [
                     'tempat_praktik' => $profile->tempat_praktik,
                     'alamat_praktik' => $profile->alamat_praktik,
+                    'provinsi_tempat_praktik' => $profile->provinsi_tempat_praktik,
                     'kota_tempat_praktik' => $profile->kota_tempat_praktik,
+                    'kecamatan_tempat_praktik' => $profile->kecamatan_tempat_praktik,
                     'telepon_tempat_praktik' => $profile->telepon_tempat_praktik,
                     'spesialisasi' => $profile->spesialisasi,
-                    'photo' => $profile->photo,
+                    'photo' => $photoUrl,
                 ] : null,
-                'locations' => $locations->map(fn($loc) => [
+                'locations' => $locations->map(fn ($loc) => [
                     'location_id' => $loc->bidan_location_id,
                     'lat' => (float) $loc->lat,
                     'lng' => (float) $loc->lng,
@@ -269,10 +364,22 @@ class UserBidanController extends Controller
                 'message' => 'Appointment berhasil dibuat. Menunggu konfirmasi dari bidan.',
                 'data' => [
                     'appointment_id' => $appointment->appointment_id,
+                    'bidan_id' => $appointment->bidan_id,
+                    'bidan_location_id' => $appointment->bidan_location_id,
                     'status' => $appointment->status,
                     'bidan_name' => $bidan->name,
-                    'preferred_date' => $appointment->preferred_date,
+                    'preferred_date' => $appointment->preferred_date instanceof \Carbon\Carbon
+                        ? $appointment->preferred_date->toDateString()
+                        : $appointment->preferred_date,
+                    'preferred_time' => $appointment->preferred_time ?? '',
+                    'consultation_type' => $appointment->consultation_type ?? 'consultation',
+                    'notes' => $appointment->notes,
                     'consent_id' => $consent->consent_id,
+                    'consent_accepted' => true,
+                    'consent_version' => $consent->consent_version ?? AppointmentConsent::CURRENT_VERSION,
+                    'shared_fields' => $consent->shared_fields ?? $request->shared_fields,
+                    'created_at' => $appointment->created_at?->toIso8601String(),
+                    'updated_at' => $appointment->updated_at?->toIso8601String(),
                 ],
             ], 201);
 

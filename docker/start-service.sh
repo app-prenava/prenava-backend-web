@@ -15,10 +15,15 @@ until php artisan db:show 2>/dev/null; do
   sleep 3
 done
 
-# Run migrations only if DB is actually reachable
+# Ensure public storage symlink exists (for uploaded photos & bidan license docs)
+php artisan storage:link 2>/dev/null || true
+
+# Run migrations and seed national Kemendagri regions if DB is reachable
 if php artisan db:show 2>/dev/null; then
   echo "Database is ready! Running migrations..."
   php artisan migrate --force || echo "⚠️  Migration failed, continuing..."
+  echo "Ensuring national region master data is seeded..."
+  php artisan db:seed --class=RegionSeeder --force || echo "⚠️  RegionSeeder failed, continuing..."
 else
   echo "⚠️  Skipping migrations (database not available)"
 fi

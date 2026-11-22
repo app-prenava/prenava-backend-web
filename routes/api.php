@@ -51,6 +51,8 @@ use App\Http\Controllers\AdminBidanController;
 use App\Http\Controllers\BidanDashboardController;
 use App\Http\Controllers\UserBidanController;
 use App\Http\Controllers\InsentifController;
+use App\Http\Controllers\RegionController;
+use App\Http\Controllers\DinkesDashboardController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -106,6 +108,8 @@ Route::get('/profile', action: [AddProfileController::class, 'show']);
 
 
 Route::get('/admin/users', [AdminAccountController::class, 'allUser']);
+Route::get('/admin/bidan/{userId}/profile', [AdminAccountController::class, 'getBidanProfile']);
+Route::get('/admin/dinkes/{userId}/profile', [AdminAccountController::class, 'getDinkesProfile']);
 Route::post('/admin/create/account/bidan',  [AdminAccountController::class, 'createBidan']);
 Route::post('/admin/create/account/dinkes', [AdminAccountController::class, 'createDinkes']);
 Route::post('/admin/users/{userId}/reset-password', [AdminAccountController::class, 'reset']);
@@ -325,12 +329,23 @@ Route::get('/', function () {
 
 // Public Routes (No Auth Required)
 Route::prefix('public')->group(function () {
+    // Master Wilayah Nasional (Kemendagri 38 Provinsi)
+    Route::get('/regions/provinces', [RegionController::class, 'provinces']);
+    Route::get('/regions/regencies', [RegionController::class, 'regencies']);
+    Route::get('/regions/districts', [RegionController::class, 'districts']);
+
     // Subscription Plans
     Route::get('/subscription-plans', [SubscriptionController::class, 'getPlans']);
     
     // Bidan Applications
     Route::post('/bidan-applications', [SubscriptionController::class, 'submitApplication']);
     Route::get('/bidan-applications/status', [SubscriptionController::class, 'checkApplicationStatus']);
+});
+
+// Dinkes Kab/Kota Dashboard Routes (Protected: role=dinkes)
+Route::prefix('dinkes')->middleware(['auth:api'])->group(function () {
+    Route::get('/dashboard', [DinkesDashboardController::class, 'index']);
+    Route::get('/users', [DinkesDashboardController::class, 'users']);
 });
 
 // Admin Routes (Protected: role=admin)
